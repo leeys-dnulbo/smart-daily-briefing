@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "smart-briefing",
-      "source": ".",
+      "source": "./",
       "description": "GA4 데이터 기반 AI 일일 브리핑 에이전트",
       "version": "1.0.0",
       "category": "analytics",

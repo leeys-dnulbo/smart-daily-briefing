@@ -1,0 +1,20 @@
+{
+  "name": "smart-daily-briefing",
+  "owner": {
+    "name": "dnulbo"
+  },
+  "metadata": {
+    "description": "GA4 데이터 기반 AI 일일 브리핑 에이전트. 대화형으로 데이터 조회, 리포트 저장, 스케줄 관리를 지원합니다."
+  },
+  "plugins": [
+    {
+      "name": "smart-briefing",
+      "source": ".",
+      "description": "GA4 데이터 기반 AI 일일 브리핑 에이전트",
+      "version": "1.0.0",
+      "category": "analytics",
+      "tags": ["ga4", "google-analytics", "briefing", "reporting"],
+      "keywords": ["GA4", "Google Analytics", "일일 브리핑", "데이터 분석"]
+    }
+  ]
+}

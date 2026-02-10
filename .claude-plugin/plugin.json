@@ -1,0 +1,8 @@
+{
+  "name": "smart-briefing",
+  "description": "GA4 데이터 기반 AI 일일 브리핑 에이전트. 데이터 조회, 분석, 리포트 저장, 스케줄 관리를 지원합니다.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Smart Briefing Team"
+  }
+}

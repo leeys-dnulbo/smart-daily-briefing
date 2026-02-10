@@ -1,0 +1,11 @@
+# OS
+.DS_Store
+
+# Reports and briefings (user data)
+reports/*.json
+briefings/*.md
+!reports/.gitkeep
+!briefings/.gitkeep
+
+# Claude Code
+.claude/

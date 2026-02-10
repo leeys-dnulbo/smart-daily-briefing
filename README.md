@@ -14,7 +14,7 @@ Claude Code 플러그인으로 GA4 데이터를 대화형으로 조회하고, �
 
 ```bash
 # 마켓플레이스에서 설치하는 경우
-/plugin marketplace add your-github-id/smart-daily-briefing
+/plugin marketplace add leeys-dnulbo/smart-daily-briefing
 /plugin install smart-briefing@smart-daily-briefing
 
 # 또는 로컬에서 직접 실행
@@ -145,6 +145,6 @@ export GA_PROPERTY_ID="123456789"
 GitHub에 push하면 다른 사용자가 설치할 수 있습니다:
 
 ```
-/plugin marketplace add your-github-id/smart-daily-briefing
+/plugin marketplace add leeys-dnulbo/smart-daily-briefing
 /plugin install smart-briefing@smart-daily-briefing
 ```

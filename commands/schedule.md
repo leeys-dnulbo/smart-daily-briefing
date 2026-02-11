@@ -65,11 +65,17 @@ $ARGUMENTS
 macOS launchd를 이용하여 매일 자동 브리핑 스케줄을 설치합니다.
 
 **환경 감지:** 먼저 현재 환경이 macOS인지 확인합니다.
-- macOS가 아닌 경우 (Cowork/Linux VM 등): launchd를 사용할 수 없으므로 아래 안내를 표시합니다:
+- macOS가 아닌 경우 (Cowork/Linux VM 등): launchd를 사용할 수 없습니다.
+  사용자에게 Cowork shortcut 생성을 제안하세요:
   ```
-  현재 환경에서는 launchd 기반 스케줄링을 사용할 수 없습니다.
-  대안: Cowork의 shortcut 스케줄 기능을 사용하세요.
-  → /create-shortcut 으로 매일 {HH:MM}에 "/smart-briefing:briefing" 을 실행하는 shortcut을 만들 수 있습니다.
+  현재 환경에서는 launchd를 사용할 수 없습니다.
+  Cowork shortcut으로 스케줄을 설정할까요?
+  ```
+  사용자가 동의하면 `/create-shortcut` 명령을 실행하여 매일 {HH:MM}에 `/smart-briefing:briefing`을 실행하는 shortcut을 생성해주세요.
+  `/create-shortcut`이 사용 불가능한 환경이면 로컬 macOS 터미널에서 수동으로 설정하는 방법을 안내합니다:
+  ```
+  로컬 macOS 터미널에서 다음 명령을 실행하세요:
+  bash {플러그인경로}/scripts/manage-schedule.sh install {HH:MM}
   ```
 
 - macOS인 경우:

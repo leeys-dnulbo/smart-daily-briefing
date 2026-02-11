@@ -14,6 +14,7 @@ Usage:
 """
 
 import argparse
+import html
 import json
 import math
 import os
@@ -56,19 +57,24 @@ METRIC_LABELS = {
 
 
 def format_number(value):
-    """숫자를 가독성 좋게 포맷팅"""
+    """숫자를 가독성 좋게 포맷팅 (천 단위 콤마)."""
+    if isinstance(value, str):
+        try:
+            value = float(value) if '.' in value else int(value)
+        except ValueError:
+            return value
     if isinstance(value, float):
-        if value < 1:
-            return f'{value:.1%}'
+        if value == int(value):
+            return f'{int(value):,}'
         return f'{value:,.1f}'
     return f'{value:,}'
 
 
 def format_date(date_str):
     """YYYYMMDD -> MM/DD"""
-    if len(date_str) == 8:
+    if len(date_str) == 8 and date_str.isdigit():
         return f'{date_str[4:6]}/{date_str[6:8]}'
-    return date_str
+    return date_str or '?'
 
 
 # ============================================================
@@ -100,10 +106,11 @@ class SvgChartGenerator:
         )
 
     def _text(self, x, y, text, size=12, fill=TEXT_COLOR, anchor='start', weight='normal'):
+        escaped = html.escape(str(text))
         return (
             f'  <text x="{x}" y="{y}" font-size="{size}" fill="{fill}" '
             f'text-anchor="{anchor}" font-weight="{weight}" '
-            f'dominant-baseline="middle">{text}</text>\n'
+            f'dominant-baseline="middle">{escaped}</text>\n'
         )
 
     def _line(self, x1, y1, x2, y2, color=GRID_COLOR, width=1):
@@ -118,7 +125,7 @@ class SvgChartGenerator:
         y1 = cy + r * math.sin(start_angle)
         x2 = cx + r * math.cos(end_angle)
         y2 = cy + r * math.sin(end_angle)
-        large_arc = 1 if (end_angle - start_angle) > math.pi else 0
+        large_arc = 1 if (end_angle - start_angle) >= math.pi else 0
         return f'M {cx} {cy} L {x1} {y1} A {r} {r} 0 {large_arc} 1 {x2} {y2} Z'
 
     # ----- 차트 유형별 생성 -----
@@ -132,7 +139,7 @@ class SvgChartGenerator:
         margin = {'top': 50, 'right': 30, 'bottom': 50, 'left': 60}
         chart_w = self.width - margin['left'] - margin['right']
         chart_h = self.height - margin['top'] - margin['bottom']
-        max_val = max(values) if values else 1
+        max_val = max(max(values), 1)
         bar_w = min(chart_w / n * 0.7, 40)
         gap = chart_w / n
 
@@ -144,7 +151,8 @@ class SvgChartGenerator:
             y = margin['top'] + chart_h * (1 - i / 4)
             val = max_val * i / 4
             svg += self._line(margin['left'], y, self.width - margin['right'], y)
-            svg += self._text(margin['left'] - 8, y, format_number(int(val)), size=10, anchor='end')
+            label_val = int(val) if val == int(val) else round(val, 1)
+            svg += self._text(margin['left'] - 8, y, format_number(label_val), size=10, anchor='end')
 
         # 막대
         for i, (label, val) in enumerate(zip(labels, values)):
@@ -176,7 +184,7 @@ class SvgChartGenerator:
         margin = {'top': 50, 'right': 100, 'bottom': 20, 'left': 160}
         h = margin['top'] + row_h * n + margin['bottom']
         chart_w = self.width - margin['left'] - margin['right']
-        max_val = max(values) if values else 1
+        max_val = max(max(values), 1)
         total = sum(values) if show_percent else 0
 
         svg = self._header(self.width, h)
@@ -222,6 +230,14 @@ class SvgChartGenerator:
         start = -math.pi / 2
         for i, (label, val) in enumerate(zip(labels, values)):
             angle = (val / total) * 2 * math.pi if total > 0 else 0
+
+            # 100%에 가까운 단일 항목은 원으로 그림 (arc path 시작/끝 겹침 방지)
+            if angle >= 2 * math.pi - 0.01:
+                svg += f'  <circle cx="{cx}" cy="{cy}" r="{r}" fill="{COLORS[i % len(COLORS)]}"/>\n'
+                svg += self._text(cx, cy, f'{label} 100%', size=11, anchor='middle', fill='#FFFFFF', weight='bold')
+                start = start + angle
+                continue
+
             end = start + angle
             path = self._arc_path(cx, cy, r, start, end)
             svg += f'  <path d="{path}" fill="{COLORS[i % len(COLORS)]}"/>\n'
@@ -236,11 +252,15 @@ class SvgChartGenerator:
 
             start = end
 
-        # 범례
-        legend_y = self.height - 25
+        # 범례 (3개씩 한 줄)
+        cols = 3
         legend_x = 30
+        col_w = (self.width - 2 * legend_x) / cols
         for i, (label, val) in enumerate(zip(labels, values)):
-            x = legend_x + i * 160
+            row = i // cols
+            col = i % cols
+            x = legend_x + col * col_w
+            legend_y = self.height - 25 - (((n - 1) // cols) - row) * 20
             svg += self._rect(x, legend_y - 6, 12, 12, COLORS[i % len(COLORS)], rx=2)
             pct = f'{val / total:.1%}' if total > 0 else '0%'
             svg += self._text(x + 18, legend_y, f'{label} ({format_number(val)}, {pct})', size=10)
@@ -315,7 +335,7 @@ class MatplotlibChartGenerator:
         plt.rcParams['figure.facecolor'] = BG_COLOR
         plt.rcParams['axes.facecolor'] = BG_COLOR
 
-    def generate_daily_trend(self, title, labels, sessions, users=None, output_path=None):
+    def generate_daily_trend(self, title, labels, sessions, users=None, *, output_path):
         """일별 트렌드: 바 + 라인 복합 차트"""
         fig, ax1 = plt.subplots(figsize=(8, 4))
 
@@ -339,7 +359,7 @@ class MatplotlibChartGenerator:
         fig.savefig(output_path, dpi=120, bbox_inches='tight')
         plt.close(fig)
 
-    def generate_horizontal_bar(self, title, labels, values, show_percent=False, output_path=None):
+    def generate_horizontal_bar(self, title, labels, values, show_percent=False, *, output_path):
         """가로 막대 차트"""
         n = len(labels)
         fig, ax = plt.subplots(figsize=(8, max(3, n * 0.5)))
@@ -367,7 +387,7 @@ class MatplotlibChartGenerator:
         fig.savefig(output_path, dpi=120, bbox_inches='tight')
         plt.close(fig)
 
-    def generate_pie(self, title, labels, values, output_path=None):
+    def generate_pie(self, title, labels, values, *, output_path):
         """도넛 차트"""
         fig, ax = plt.subplots(figsize=(6, 5))
         colors = [COLORS[i % len(COLORS)] for i in range(len(labels))]
@@ -393,7 +413,7 @@ class MatplotlibChartGenerator:
         fig.savefig(output_path, dpi=120, bbox_inches='tight')
         plt.close(fig)
 
-    def generate_change_bar(self, title, labels, changes, threshold=20, output_path=None):
+    def generate_change_bar(self, title, labels, changes, threshold=20, *, output_path):
         """양방향 가로 막대 (변화율)"""
         n = len(labels)
         fig, ax = plt.subplots(figsize=(8, max(3, n * 0.5)))
@@ -414,7 +434,7 @@ class MatplotlibChartGenerator:
             sign = '+' if change >= 0 else ''
             text = f'{sign}{change:.1f}%'
             if is_anomaly:
-                text += ' ⚠️'
+                text += ' [!]'
             x_pos = bar.get_width() + (max(abs(c) for c in changes) * 0.05 * (1 if change >= 0 else -1))
             ax.text(x_pos, bar.get_y() + bar.get_height() / 2,
                     text, va='center', fontsize=9, fontweight='bold',
@@ -458,7 +478,7 @@ class ChartDispatcher:
         if not rows:
             return
 
-        labels = [format_date(r['date']) for r in rows]
+        labels = [format_date(r.get('date', '')) for r in rows]
         sessions = [r.get('sessions', 0) for r in rows]
         users = [r.get('totalUsers', 0) for r in rows]
         title = section_data.get('name', '일별 트렌드')
@@ -477,23 +497,11 @@ class ChartDispatcher:
         self.manifest['charts']['daily_trend'] = f'daily_trend.{self.ext}'
 
     def generate_traffic_sources(self, section_data):
-        rows = section_data.get('data', [])
-        if not rows:
-            return
-
-        labels = [f"{r.get('sessionSource', '?')}/{r.get('sessionMedium', '?')}" for r in rows]
-        values = [r.get('sessions', 0) for r in rows]
-        title = section_data.get('name', '트래픽 소스')
-        path = self._output_path('traffic_sources')
-
-        if self.use_matplotlib:
-            self.mpl_gen.generate_horizontal_bar(title, labels, values, show_percent=True, output_path=path)
-        else:
-            svg = self.svg_gen.generate_horizontal_bar(title, labels, values, show_percent=True)
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(svg)
-
-        self.manifest['charts']['traffic_sources'] = f'traffic_sources.{self.ext}'
+        self.generate_horizontal_bar_generic(
+            'traffic_sources', section_data,
+            label_keys=['sessionSource', 'sessionMedium'],
+            value_key='sessions', show_percent=True,
+        )
 
     def generate_device(self, section_data):
         rows = section_data.get('data', [])
@@ -514,49 +522,95 @@ class ChartDispatcher:
 
         self.manifest['charts']['device'] = f'device.{self.ext}'
 
-    def generate_top_pages(self, section_data):
+    def generate_horizontal_bar_generic(self, section_id, section_data, label_keys, value_key, show_percent=False):
+        """범용 가로 막대 차트 생성"""
         rows = section_data.get('data', [])
         if not rows:
             return
 
-        labels = [r.get('pagePath', r.get('landingPage', '?')) for r in rows]
-        values = [r.get('screenPageViews', r.get('sessions', 0)) for r in rows]
-        title = section_data.get('name', '상위 페이지')
-        path = self._output_path('top_pages')
+        labels = []
+        for r in rows:
+            parts = [str(r.get(k, '?')) for k in label_keys]
+            labels.append('/'.join(parts) if len(parts) > 1 else parts[0])
+        values = [r.get(value_key, 0) for r in rows]
+        title = section_data.get('name', section_id)
+        path = self._output_path(section_id)
 
         if self.use_matplotlib:
-            self.mpl_gen.generate_horizontal_bar(title, labels, values, output_path=path)
+            self.mpl_gen.generate_horizontal_bar(title, labels, values, show_percent=show_percent, output_path=path)
         else:
-            svg = self.svg_gen.generate_horizontal_bar(title, labels, values)
+            svg = self.svg_gen.generate_horizontal_bar(title, labels, values, show_percent=show_percent)
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(svg)
 
-        self.manifest['charts']['top_pages'] = f'top_pages.{self.ext}'
+        self.manifest['charts'][section_id] = f'{section_id}.{self.ext}'
 
-    def generate_overview_change(self, section_data, threshold=20):
+    def generate_top_pages(self, section_data):
+        self.generate_horizontal_bar_generic(
+            'top_pages', section_data,
+            label_keys=['pagePath'], value_key='screenPageViews',
+        )
+
+    def generate_landing_pages(self, section_data):
+        self.generate_horizontal_bar_generic(
+            'landing_pages', section_data,
+            label_keys=['landingPage'], value_key='sessions',
+        )
+
+    def generate_campaigns(self, section_data):
+        self.generate_horizontal_bar_generic(
+            'campaigns', section_data,
+            label_keys=['sessionCampaignName', 'sessionSource'],
+            value_key='sessions', show_percent=True,
+        )
+
+    def generate_events(self, section_data):
+        self.generate_horizontal_bar_generic(
+            'events', section_data,
+            label_keys=['eventName'], value_key='eventCount',
+        )
+
+    def _build_change_data(self, section_data):
+        """compare_previous 섹션에서 변화율 데이터를 추출"""
         data = section_data.get('data', {})
+        if isinstance(data, list):
+            return [], []  # 배열 형태의 데이터는 변화율 차트 대상이 아님
         current = data.get('current', {})
         previous = data.get('previous', {})
         if not current or not previous:
-            return
+            return [], []
 
         labels = []
         changes = []
         for key in current:
-            if key not in previous or previous[key] == 0:
+            if key not in previous:
                 continue
-            cur = current[key]
-            prev = previous[key]
+            try:
+                cur = float(current[key])
+                prev = float(previous[key])
+            except (ValueError, TypeError):
+                continue
+            if prev == 0:
+                if cur != 0:
+                    label = METRIC_LABELS.get(key, key)
+                    labels.append(label)
+                    changes.append(100.0)  # 0→N을 +100%로 표시
+                continue
             change = ((cur - prev) / abs(prev)) * 100
             label = METRIC_LABELS.get(key, key)
             labels.append(label)
             changes.append(change)
 
+        return labels, changes
+
+    def _generate_change_chart(self, chart_id, section_data, threshold=20):
+        """변화율 차트 생성 공통 로직"""
+        labels, changes = self._build_change_data(section_data)
         if not labels:
             return
 
-        title = section_data.get('name', '주요 지표 변화율')
-        path = self._output_path('overview_change')
+        title = section_data.get('name', '변화율')
+        path = self._output_path(chart_id)
 
         if self.use_matplotlib:
             self.mpl_gen.generate_change_bar(title, labels, changes, threshold, output_path=path)
@@ -565,7 +619,13 @@ class ChartDispatcher:
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(svg)
 
-        self.manifest['charts']['overview_change'] = f'overview_change.{self.ext}'
+        self.manifest['charts'][chart_id] = f'{chart_id}.{self.ext}'
+
+    def generate_overview_change(self, section_data, threshold=20):
+        self._generate_change_chart('overview_change', section_data, threshold)
+
+    def generate_user_behavior(self, section_data, threshold=20):
+        self._generate_change_chart('user_behavior', section_data, threshold)
 
     def save_manifest(self):
         path = os.path.join(self.output_dir, 'manifest.json')
@@ -579,11 +639,13 @@ class ChartDispatcher:
 SECTION_HANDLERS = {
     'daily_trend': 'generate_daily_trend',
     'traffic_sources': 'generate_traffic_sources',
-    'campaigns': 'generate_traffic_sources',
+    'campaigns': 'generate_campaigns',
     'device': 'generate_device',
     'top_pages': 'generate_top_pages',
-    'landing_pages': 'generate_top_pages',
+    'landing_pages': 'generate_landing_pages',
+    'events': 'generate_events',
     'overview': 'generate_overview_change',
+    'user_behavior': 'generate_user_behavior',
 }
 
 
@@ -601,8 +663,12 @@ def main():
         print('ERROR: Python 3.6 이상이 필요합니다.', file=sys.stderr)
         sys.exit(1)
 
-    with open(args.input, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    try:
+        with open(args.input, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError) as e:
+        print(f'ERROR: 입력 파일을 읽을 수 없습니다: {e}', file=sys.stderr)
+        sys.exit(1)
 
     threshold = data.get('anomaly_threshold', 20)
     sections = data.get('sections', {})
@@ -616,13 +682,17 @@ def main():
         if not handler_name:
             continue
 
+        prev_count = len(dispatcher.manifest['charts'])
         handler = getattr(dispatcher, handler_name)
-        if handler_name == 'generate_overview_change':
+        if handler_name in ('generate_overview_change', 'generate_user_behavior'):
             handler(section_data, threshold)
         else:
             handler(section_data)
 
-        print(f'  Generated: {section_id}.{dispatcher.ext}')
+        if len(dispatcher.manifest['charts']) > prev_count:
+            print(f'  Generated: {section_id}.{dispatcher.ext}')
+        else:
+            print(f'  Skipped: {section_id} (no data)')
 
     dispatcher.save_manifest()
     print(f'Manifest saved: {os.path.join(args.output_dir, "manifest.json")}')

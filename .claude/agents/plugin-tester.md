@@ -27,7 +27,8 @@ MCP 연결, 스킬 트리거, 커맨드 실행, 파일 저장을 포괄합니다
 ls .claude-plugin/plugin.json
 ls .claude-plugin/marketplace.json
 ls CLAUDE.md
-ls .mcp.json
+ls .mcp.json.example
+ls config.json.example
 
 # 스킬 파일 확인
 ls skills/*/SKILL.md
@@ -43,9 +44,10 @@ ls reports/ briefings/
 - [ ] plugin.json 존재 및 JSON 유효성
 - [ ] marketplace.json 존재 및 JSON 유효성
 - [ ] CLAUDE.md 존재
-- [ ] .mcp.json 존재 및 JSON 유효성
-- [ ] 모든 스킬 파일 존재
-- [ ] 모든 커맨드 파일 존재
+- [ ] .mcp.json.example 존재 및 JSON 유효성 (`.mcp.json`은 gitignored, 사용자가 setup 시 생성)
+- [ ] config.json.example 존재 및 JSON 유효성
+- [ ] 모든 스킬 파일 존재 (ga-analyst, report-manager, briefing-customizer)
+- [ ] 모든 커맨드 파일 존재 (setup, briefing, customize, reports, schedule)
 - [ ] reports/, briefings/ 디렉토리 존재
 
 ### 2. 프론트매터 검증
@@ -60,14 +62,15 @@ head -5 commands/*.md
 
 **체크리스트**:
 - [ ] 모든 스킬에 name, description 존재
-- [ ] 모든 커맨드에 name, description 존재
+- [ ] 모든 커맨드에 description 존재
+- [ ] 인수를 받는 커맨드에 argument-hint 존재
 - [ ] 프론트매터 YAML 문법 유효
 
 ### 3. 스킬-커맨드 일관성
 
 ```bash
 # CLAUDE.md에 등록된 기능 목록
-grep -E "briefing|reports|schedule|setup|ga-analyst|report-manager" CLAUDE.md
+grep -E "briefing|customize|reports|schedule|setup|ga-analyst|report-manager|briefing-customizer" CLAUDE.md
 
 # 실제 파일과 대조
 ls commands/ skills/*/

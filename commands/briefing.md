@@ -6,9 +6,21 @@ description: AI 일일 브리핑을 생성합니다. config.json 설정에 따�
 
 GA4 데이터를 종합적으로 수집하고 분석하여 일일 브리핑을 생성하세요.
 
+## 사전 확인: MCP 서버 연결
+
+`get_ga4_data` MCP 도구가 사용 가능한지 먼저 확인하세요.
+사용할 수 없다면 브리핑 생성을 시도하지 말고 아래 메시지를 표시하세요:
+
+```
+GA4 MCP 서버가 연결되지 않았습니다.
+`/smart-briefing:setup` 으로 초기 설정을 진행해주세요.
+```
+
 ## 1단계: 설정 로드
 
-`config.json` 파일을 읽으세요. 파일이 없으면 아래 기본 설정을 사용합니다.
+`config.json` 파일을 읽으세요.
+- 파일이 없으면 아래 기본 설정을 사용합니다.
+- 파일이 존재하지만 JSON 파싱에 실패하면: "config.json이 손상되었습니다. 기본 설정으로 진행합니다. 복구: `/smart-briefing:customize reset`" 메시지를 표시하고 기본 설정을 사용합니다.
 
 ### 기본 설정 (config.json이 없을 때)
 
@@ -50,9 +62,13 @@ config의 `briefing.sections` 배열에서 **`enabled: true`인 섹션만** 순�
 
 ### compare_previous 처리
 
-`compare_previous: true`인 섹션은 추가로 이전 기간도 조회합니다:
+`compare_previous: true`인 섹션은 추가로 이전 기간도 조회합니다.
+일반 공식: date_range가 N일이면 → 이전 기간: startDate "(N*2)daysAgo", endDate "(N+1)daysAgo"
+
+예시:
 - date_range가 "7daysAgo"이면 → 이전 기간: startDate "14daysAgo", endDate "8daysAgo"
 - date_range가 "30daysAgo"이면 → 이전 기간: startDate "60daysAgo", endDate "31daysAgo"
+- date_range가 "14daysAgo"이면 → 이전 기간: startDate "28daysAgo", endDate "15daysAgo"
 
 ## 3단계: 브리핑 작성
 

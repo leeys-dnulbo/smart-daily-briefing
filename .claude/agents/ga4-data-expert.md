@@ -26,13 +26,13 @@ model: inherit
 |------------|----------------|---------------|
 | "트래픽 현황" | date | sessions, totalUsers, newUsers |
 | "인기 페이지" | pagePath | screenPageViews, averageSessionDuration |
-| "유입 경로" | sessionSource, sessionMedium | sessions, bounceRate |
+| "유입 경로" | sessionSource, sessionMedium | sessions, totalUsers, bounceRate |
 | "기기별 분석" | deviceCategory | sessions, totalUsers, bounceRate |
-| "이벤트 분석" | eventName | eventCount, eventValue |
-| "캠페인 성과" | sessionCampaignName | sessions, conversions |
+| "이벤트 분석" | eventName | eventCount, totalUsers |
+| "캠페인 성과" | sessionCampaignName, sessionSource | sessions, totalUsers, bounceRate |
 | "지역별 분석" | country, city | totalUsers, sessions |
-| "시간대별 분석" | dateHour | sessions, totalUsers |
-| "랜딩 페이지" | landingPagePlusQueryString | sessions, bounceRate |
+| "시간대별 분석" | hour | sessions, totalUsers |
+| "랜딩 페이지" | landingPage | sessions, bounceRate, averageSessionDuration |
 | "이탈률" | - | bounceRate, engagementRate |
 
 ### 2. 날짜 범위 전략

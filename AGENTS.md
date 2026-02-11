@@ -48,6 +48,7 @@ Smart Daily Briefing은 **Claude Code 플러그인**으로, 사용자의 GA4 데
 |------|------|-----------|------|
 | **ga-analyst** | `skills/ga-analyst/SKILL.md` | "이번 주 세션 수 보여줘" | GA4 데이터 조회 및 분석 |
 | **report-manager** | `skills/report-manager/SKILL.md` | "리포트로 저장해줘" | 리포트 저장/스케줄 관리 |
+| **briefing-customizer** | `skills/briefing-customizer/SKILL.md` | "행동패턴 위주로 브리핑해줘" | 브리핑 개인화 설정 |
 
 ```
 사용자: "모바일 이탈률이 어떻게 돼?"
@@ -67,6 +68,7 @@ Smart Daily Briefing은 **Claude Code 플러그인**으로, 사용자의 GA4 데
 |--------|------|------|
 | `/smart-briefing:setup` | `commands/setup.md` | 초기 설정 및 MCP 연결 확인 |
 | `/smart-briefing:briefing` | `commands/briefing.md` | 일일 종합 브리핑 생성 |
+| `/smart-briefing:customize` | `commands/customize.md` | 브리핑 개인화 설정 조회/변경 |
 | `/smart-briefing:reports` | `commands/reports.md` | 저장된 리포트 목록 조회 |
 | `/smart-briefing:schedule` | `commands/schedule.md` | 스케줄 설정 및 관리 |
 
@@ -192,10 +194,12 @@ Claude Code가 내부적으로 활용하는 전문가 에이전트입니다. 개
 |-----------|-----------|--------|
 | 트래픽 현황 | `date` | `sessions`, `totalUsers`, `newUsers` |
 | 인기 페이지 | `pagePath` | `screenPageViews`, `averageSessionDuration` |
-| 유입 경로 | `sessionSource`, `sessionMedium` | `sessions`, `bounceRate` |
+| 유입 경로 | `sessionSource`, `sessionMedium` | `sessions`, `totalUsers`, `bounceRate` |
 | 기기별 분석 | `deviceCategory` | `sessions`, `totalUsers`, `bounceRate` |
-| 이벤트 분석 | `eventName` | `eventCount`, `eventValue` |
-| 캠페인 성과 | `sessionCampaignName` | `sessions`, `conversions` |
+| 이벤트 분석 | `eventName` | `eventCount`, `totalUsers` |
+| 캠페인 성과 | `sessionCampaignName`, `sessionSource` | `sessions`, `totalUsers`, `bounceRate` |
+| 랜딩 페이지 | `landingPage` | `sessions`, `bounceRate`, `averageSessionDuration` |
+| 시간대별 분석 | `hour` | `sessions`, `totalUsers` |
 
 **이상치 탐지 기준:**
 - 전주 대비 **+20%** 이상 → 급증 (원인 분석 권장)
@@ -263,7 +267,7 @@ Claude Code가 내부적으로 활용하는 전문가 에이전트입니다. 개
 | 단계 | 에이전트 | 수행 내용 |
 |------|---------|----------|
 | 1 | **planner** | 요구사항 분석, 영향 파일 파악, 작업 분해 |
-| 2 | **ga4-data-expert** | `dateHour` 차원 + `sessions` 메트릭 매핑 설계 |
+| 2 | **ga4-data-expert** | `hour` 차원 + `sessions`, `totalUsers` 메트릭 매핑 설계 |
 | 3 | **code-writer** | ga-analyst 스킬에 시간대 분석 로직 추가 |
 | 4 | **code-reviewer** | 변경사항 리뷰 (GA4 도구명, 한국어, 일관성) |
 | 5 | **plugin-tester** | 전체 플러그인 구조 및 동작 검증 |
@@ -290,12 +294,15 @@ smart-daily-briefing/
 ├── skills/                        ← 자동 트리거 스킬
 │   ├── ga-analyst/
 │   │   └── SKILL.md
-│   └── report-manager/
+│   ├── report-manager/
+│   │   └── SKILL.md
+│   └── briefing-customizer/
 │       └── SKILL.md
 │
 ├── commands/                      ← 슬래시 커맨드
 │   ├── setup.md
 │   ├── briefing.md
+│   ├── customize.md
 │   ├── reports.md
 │   └── schedule.md
 │
@@ -304,6 +311,7 @@ smart-daily-briefing/
 │
 ├── .mcp.json                      ← MCP 서버 설정 (gitignored)
 ├── .mcp.json.example              ← MCP 설정 템플릿
+├── config.json.example            ← 브리핑 개인화 설정 템플릿
 ├── CLAUDE.md                      ← 플러그인 컨텍스트
 ├── README.md                      ← 사용 가이드
 └── TODO.md                        ← 프로젝트 상태

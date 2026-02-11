@@ -99,7 +99,7 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 "사용자 행동패턴 위주로 브리핑해줘"
 "캠페인 성과 중심으로 바꿔줘"
 "이벤트 섹션 추가해줘"
-"이탈률 임계값 30%로 높여줘"
+"이상 탐지 임계값 30%로 높여줘"
 "/smart-briefing:customize preset behavior"
 ```
 
@@ -110,21 +110,27 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 ```
 smart-daily-briefing/
 ├── .claude-plugin/
-│   └── plugin.json          # 플러그인 매니페스트
-├── .mcp.json                # GA4 MCP 서버 설정
+│   ├── plugin.json            # 플러그인 매니페스트
+│   └── marketplace.json       # 마켓플레이스 배포 설정
+├── .claude/agents/            # 서브에이전트 정의
 ├── skills/
 │   ├── ga-analyst/
-│   │   └── SKILL.md         # GA 데이터 자동 분석 (자동 트리거)
-│   └── report-manager/
-│       └── SKILL.md         # 리포트 관리 (자동 트리거)
+│   │   └── SKILL.md           # GA 데이터 자동 분석 (자동 트리거)
+│   ├── report-manager/
+│   │   └── SKILL.md           # 리포트 관리 (자동 트리거)
+│   └── briefing-customizer/
+│       └── SKILL.md           # 브리핑 개인화 설정 (자동 트리거)
 ├── commands/
-│   ├── setup.md             # /smart-briefing:setup (초기 설정)
-│   ├── briefing.md          # /smart-briefing:briefing
-│   ├── reports.md           # /smart-briefing:reports
-│   └── schedule.md          # /smart-briefing:schedule
-├── CLAUDE.md                # 자동 로드 컨텍스트
-├── reports/                 # 저장된 리포트 (.json)
-└── briefings/               # 생성된 브리핑 (.md)
+│   ├── setup.md               # /smart-briefing:setup
+│   ├── briefing.md            # /smart-briefing:briefing
+│   ├── customize.md           # /smart-briefing:customize
+│   ├── reports.md             # /smart-briefing:reports
+│   └── schedule.md            # /smart-briefing:schedule
+├── config.json.example        # 브리핑 개인화 설정 템플릿
+├── .mcp.json.example          # MCP 서버 설정 템플릿
+├── CLAUDE.md                  # 자동 로드 컨텍스트
+├── reports/                   # 저장된 리포트 (.json)
+└── briefings/                 # 생성된 브리핑 (.md)
 ```
 
 ---

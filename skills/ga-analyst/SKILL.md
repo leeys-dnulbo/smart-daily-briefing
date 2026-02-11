@@ -55,24 +55,24 @@ GA4 MCP 서버가 연결되지 않았습니다.
 - metrics: eventCount, totalUsers
 
 ### 캠페인 성과
-- dimensions: sessionCampaignName, sessionSource, sessionMedium
+- dimensions: sessionCampaignName, sessionSource
 - metrics: sessions, totalUsers, bounceRate
 
 ### 랜딩 페이지
 - dimensions: landingPage
-- metrics: sessions, totalUsers, bounceRate
+- metrics: sessions, bounceRate, averageSessionDuration
 
 ### 국가별 분석
 - dimensions: country
 - metrics: sessions, totalUsers
 
 ### 시간대별 분석
-- dimensions: dateHourMinute 또는 hour
+- dimensions: hour
 - metrics: sessions, totalUsers
 
 ## 기간 지정
 
-- 기본: 최근 7일 (startDate: "7daysAgo", endDate: "today")
+- 기본: 최근 7일 (startDate: "7daysAgo", endDate: "yesterday")
 - "이번 달": startDate: "30daysAgo"
 - "어제": startDate: "yesterday", endDate: "yesterday"
 - "오늘": startDate: "today", endDate: "today"

@@ -44,19 +44,16 @@ model: haiku
 ```markdown
 ---
 name: {skill-name}
-autoTrigger: true
-description: {설명}
+description: {설명. 자동 트리거 예시 포함}
 ---
 
 # {스킬 이름}
 
-## 트리거 조건
-- {자연어 트리거 예시}
+## MCP 연결 확인
+{MCP 도구 사용 가능 여부 확인}
 
-## 동작
-1. MCP 서버 연결 확인
-2. GA4 데이터 조회
-3. 결과 포맷팅
+## 동작 방식
+1. {단계별 동작}
 
 ## 응답 포맷
 {테이블, 차트 등 출력 형식}
@@ -66,13 +63,15 @@ description: {설명}
 
 ```markdown
 ---
-name: {command-name}
 description: {설명}
+argument-hint: [{인수 형식}]  # 인수를 받는 경우만
 ---
 
 # {커맨드 이름}
 
-## 실행 절차
+$ARGUMENTS
+
+## 동작
 1. {단계별 동작}
 
 ## 출력 포맷

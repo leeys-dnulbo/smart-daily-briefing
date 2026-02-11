@@ -130,16 +130,19 @@ smart-daily-briefing/
 │   └── marketplace.json
 ├── skills/                  # 자동 트리거 스킬
 │   ├── ga-analyst/SKILL.md
-│   └── report-manager/SKILL.md
+│   ├── report-manager/SKILL.md
+│   └── briefing-customizer/SKILL.md
 ├── commands/                # 슬래시 커맨드
 │   ├── setup.md
 │   ├── briefing.md
+│   ├── customize.md
 │   ├── reports.md
 │   └── schedule.md
 ├── reports/                 # 저장된 리포트 (JSON)
 ├── briefings/               # 생성된 브리핑 (MD)
+├── config.json.example      # 브리핑 개인화 설정 템플릿
 ├── CLAUDE.md                # 플러그인 컨텍스트
-└── .mcp.json                # MCP 서버 설정
+└── .mcp.json                # MCP 서버 설정 (gitignored)
 ```
 
 ## When to Use

@@ -1,0 +1,82 @@
+{
+  "version": "1.0",
+  "preset": "default",
+  "briefing": {
+    "sections": [
+      {
+        "id": "overview",
+        "name": "핵심 지표 오버뷰",
+        "enabled": true,
+        "metrics": ["sessions", "totalUsers", "newUsers", "bounceRate", "averageSessionDuration", "screenPageViews", "engagementRate"],
+        "dimensions": [],
+        "compare_previous": true
+      },
+      {
+        "id": "top_pages",
+        "name": "상위 페이지",
+        "enabled": true,
+        "metrics": ["screenPageViews", "averageSessionDuration", "bounceRate"],
+        "dimensions": ["pagePath"],
+        "limit": 10
+      },
+      {
+        "id": "traffic_sources",
+        "name": "트래픽 소스",
+        "enabled": true,
+        "metrics": ["sessions", "totalUsers", "bounceRate"],
+        "dimensions": ["sessionSource", "sessionMedium"],
+        "limit": 10
+      },
+      {
+        "id": "daily_trend",
+        "name": "일별 트렌드",
+        "enabled": true,
+        "metrics": ["sessions", "totalUsers"],
+        "dimensions": ["date"]
+      },
+      {
+        "id": "device",
+        "name": "디바이스별 분석",
+        "enabled": true,
+        "metrics": ["sessions", "bounceRate", "averageSessionDuration"],
+        "dimensions": ["deviceCategory"]
+      },
+      {
+        "id": "campaigns",
+        "name": "캠페인 성과",
+        "enabled": false,
+        "metrics": ["sessions", "totalUsers", "bounceRate"],
+        "dimensions": ["sessionCampaignName", "sessionSource"],
+        "limit": 10
+      },
+      {
+        "id": "events",
+        "name": "이벤트 분석",
+        "enabled": false,
+        "metrics": ["eventCount", "totalUsers"],
+        "dimensions": ["eventName"],
+        "limit": 10
+      },
+      {
+        "id": "landing_pages",
+        "name": "랜딩 페이지",
+        "enabled": false,
+        "metrics": ["sessions", "bounceRate", "averageSessionDuration"],
+        "dimensions": ["landingPage"],
+        "limit": 10
+      },
+      {
+        "id": "user_behavior",
+        "name": "사용자 행동패턴",
+        "enabled": false,
+        "metrics": ["engagementRate", "sessionsPerUser", "screenPageViewsPerSession", "averageSessionDuration", "eventCount"],
+        "dimensions": [],
+        "compare_previous": true
+      }
+    ],
+    "date_range": "7daysAgo",
+    "anomaly_threshold": 20,
+    "max_insights": 5,
+    "max_actions": 4
+  }
+}

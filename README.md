@@ -77,6 +77,7 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 |--------|------|
 | `/smart-briefing:setup` | 초기 설정 안내 (MCP 연결 확인) |
 | `/smart-briefing:briefing` | GA4 데이터를 종합 분석하여 일일 브리핑 생성 |
+| `/smart-briefing:customize` | 브리핑 개인화 설정 조회/변경 |
 | `/smart-briefing:reports` | 저장된 리포트 목록 조회 |
 | `/smart-briefing:schedule` | 리포트 스케줄 조회/설정/실행 |
 
@@ -88,6 +89,18 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 "이 분석을 리포트로 저장해줘"
 "매일 아침 9시에 받고 싶어"
 "/smart-briefing:schedule run 모바일분석"
+```
+
+### 브리핑 개인화
+
+브리핑 내용을 자연어로 맞춤 설정할 수 있습니다:
+
+```
+"사용자 행동패턴 위주로 브리핑해줘"
+"캠페인 성과 중심으로 바꿔줘"
+"이벤트 섹션 추가해줘"
+"이탈률 임계값 30%로 높여줘"
+"/smart-briefing:customize preset behavior"
 ```
 
 ---

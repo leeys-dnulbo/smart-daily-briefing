@@ -21,7 +21,9 @@ GA4 MCP 서버가 연결되지 않았습니다.
 
 - 자연어 GA4 데이터 조회 및 분석 (ga-analyst 스킬)
 - 분석 결과 리포트 저장 및 스케줄 관리 (report-manager 스킬)
+- 브리핑 개인화 설정 (briefing-customizer 스킬)
 - `/smart-briefing:briefing` - 일일 종합 브리핑 생성
+- `/smart-briefing:customize` - 브리핑 설정 조회/변경
 - `/smart-briefing:reports` - 저장된 리포트 목록
 - `/smart-briefing:schedule` - 스케줄 관리
 - `/smart-briefing:setup` - 초기 설정 안내
@@ -30,6 +32,7 @@ GA4 MCP 서버가 연결되지 않았습니다.
 
 - 리포트: `reports/*.json`
 - 브리핑: `briefings/YYYY-MM-DD.md`
+- 개인화 설정: `config.json`
 
 ## 응답 언어
 

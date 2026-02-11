@@ -14,3 +14,6 @@ briefings/*.md
 # MCP config (contains credentials)
 .mcp.json
 .mcp.local.json
+
+# User config (personalization)
+config.json

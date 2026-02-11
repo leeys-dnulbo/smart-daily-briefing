@@ -199,7 +199,16 @@ pip install matplotlib
 
 GitHub에 push하면 다른 사용자가 설치할 수 있습니다:
 
+```bash
+claude plugin marketplace add leeys-dnulbo/smart-daily-briefing
+claude plugin install smart-briefing@smart-daily-briefing
 ```
-/plugin marketplace add leeys-dnulbo/smart-daily-briefing
-/plugin install smart-briefing@smart-daily-briefing
+
+### 플러그인 업데이트
+
+새 버전이 릴리즈되면 아래 명령으로 업데이트하세요:
+
+```bash
+claude plugin marketplace update smart-daily-briefing
+claude plugin install smart-briefing@smart-daily-briefing
 ```

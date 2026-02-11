@@ -23,22 +23,38 @@ claude --plugin-dir ./smart-daily-briefing
 
 GA4 MCP 서버는 플러그인에 포함되어 있어 자동으로 설치/실행됩니다.
 
-### 2. 초기 설정
+### 2. MCP 서버 설정
 
-플러그인 실행 후 setup 커맨드를 실행하면 대화형으로 안내합니다:
+플러그인의 GA4 연동은 `.mcp.json` 파일로 설정합니다.
+
+```bash
+# 템플릿에서 복사
+cp .mcp.json.example .mcp.json
+```
+
+`.mcp.json`을 열어 실제 값을 입력하세요:
+
+```json
+{
+  "mcpServers": {
+    "ga4-analytics": {
+      "command": "pipx",
+      "args": ["run", "google-analytics-mcp"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/path/to/your-service-account.json",
+        "GA4_PROPERTY_ID": "your-property-id"
+      }
+    }
+  }
+}
+```
+
+설정 후 Claude Code를 재시작하면 바로 사용 가능합니다.
+설정 상태를 확인하려면:
 
 ```
 /smart-briefing:setup
 ```
-
-직접 설정하려면 셸 프로파일(`.zshrc` 또는 `.bashrc`)에 추가:
-
-```bash
-export GOOGLE_SERVICE_ACCOUNT_JSON="/path/to/service-account.json"
-export GA_PROPERTY_ID="123456789"
-```
-
-설정 후 Claude Code를 재시작하면 바로 사용 가능합니다.
 
 ---
 
@@ -59,7 +75,7 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 
 | 커맨드 | 설명 |
 |--------|------|
-| `/smart-briefing:setup` | 초기 설정 안내 (환경변수, MCP 연결 확인) |
+| `/smart-briefing:setup` | 초기 설정 안내 (MCP 연결 확인) |
 | `/smart-briefing:briefing` | GA4 데이터를 종합 분석하여 일일 브리핑 생성 |
 | `/smart-briefing:reports` | 저장된 리포트 목록 조회 |
 | `/smart-briefing:schedule` | 리포트 스케줄 조회/설정/실행 |
@@ -131,12 +147,15 @@ smart-daily-briefing/
 1. Google Analytics > **관리** > **속성 설정 > 속성 세부정보**
 2. **속성 ID** (숫자) 복사
 
-### Step 5: 환경변수 설정
+### Step 5: .mcp.json 설정
 
 ```bash
-export GOOGLE_SERVICE_ACCOUNT_JSON="/path/to/service-account.json"
-export GA_PROPERTY_ID="123456789"
+cp .mcp.json.example .mcp.json
 ```
+
+`.mcp.json`의 두 값을 수정하세요:
+- `GOOGLE_APPLICATION_CREDENTIALS`: 다운로드한 서비스 계정 JSON 파일의 **절대 경로**
+- `GA4_PROPERTY_ID`: 복사한 속성 ID (숫자)
 
 ---
 

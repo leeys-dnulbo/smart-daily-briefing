@@ -84,13 +84,26 @@ macOS launchd를 이용하여 매일 자동 브리핑 스케줄을 설치합니�
      ```bash
      bash scripts/manage-schedule.sh install {HH:MM}
      ```
-  3. 결과를 확인하고 안내합니다:
+  3. **Slack 알림 설정 확인:** config.json에 `notifications.slack.webhook_url`이 없으면 사용자에게 물어봅니다:
+     ```
+     브리핑 결과를 Slack으로 받아보시겠어요?
+     받으시려면 Slack Incoming Webhook URL을 입력해주세요.
+     (건너뛰려면 "아니요" 또는 "나중에")
+     ```
+     - 사용자가 URL을 입력하면:
+       1. `https://` 시작 여부 검증
+       2. config.json에 `notifications.slack.webhook_url` 저장, `enabled: true` 설정
+       3. `bash scripts/send-slack.sh test`로 테스트 메시지 전송
+       4. 성공하면 "Slack 알림이 설정되었습니다!" 안내
+     - "아니요"/"나중에"이면 건너뜁니다
+     - 이미 webhook_url이 설정되어 있으면 이 단계를 건너뜁니다
+  4. 결과를 확인하고 안내합니다:
      ```
      자동 브리핑 스케줄이 설정되었습니다!
      - 시간: 매일 {HH:MM}
      - 브리핑 결과: briefings/{날짜}.md
      - 실행 로그: briefings/schedule.log
-     - Slack 알림: {config.json에 webhook_url이 있으면 "활성화됨", 없으면 "미설정 (\"Slack webhook 등록해줘\"로 설정)"}
+     - Slack 알림: {활성화됨/미설정}
 
      변경: /smart-briefing:schedule install {다른시간}
      해제: /smart-briefing:schedule uninstall

@@ -306,8 +306,11 @@ smart-daily-briefing/
 │   ├── reports.md
 │   └── schedule.md
 │
+├── scripts/
+│   └── generate-charts.py         ← 차트 이미지 생성 (matplotlib/SVG)
+│
 ├── reports/                       ← 저장된 리포트 (JSON)
-├── briefings/                     ← 생성된 브리핑 (MD)
+├── briefings/                     ← 생성된 브리핑 (MD + charts/)
 │
 ├── .mcp.json                      ← MCP 서버 설정 (gitignored)
 ├── .mcp.json.example              ← MCP 설정 템플릿

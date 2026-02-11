@@ -126,11 +126,13 @@ smart-daily-briefing/
 │   ├── customize.md           # /smart-briefing:customize
 │   ├── reports.md             # /smart-briefing:reports
 │   └── schedule.md            # /smart-briefing:schedule
+├── scripts/
+│   └── generate-charts.py     # 차트 이미지 생성 (matplotlib/SVG)
 ├── config.json.example        # 브리핑 개인화 설정 템플릿
 ├── .mcp.json.example          # MCP 서버 설정 템플릿
 ├── CLAUDE.md                  # 자동 로드 컨텍스트
 ├── reports/                   # 저장된 리포트 (.json)
-└── briefings/                 # 생성된 브리핑 (.md)
+└── briefings/                 # 생성된 브리핑 (.md, charts/)
 ```
 
 ---
@@ -175,6 +177,21 @@ cp .mcp.json.example .mcp.json
 `.mcp.json`의 두 값을 수정하세요:
 - `GOOGLE_APPLICATION_CREDENTIALS`: 다운로드한 서비스 계정 JSON 파일의 **절대 경로**
 - `GA4_PROPERTY_ID`: 복사한 속성 ID (숫자)
+
+---
+
+## 차트 이미지 생성 (선택)
+
+브리핑에 차트 이미지를 포함하려면 Python 3.6+가 필요합니다.
+
+```bash
+# matplotlib 설치 시 → PNG 차트 (고품질)
+pip install matplotlib
+
+# matplotlib 미설치 시 → SVG 차트 (순수 Python, 설치 불필요)
+```
+
+브리핑 생성 시 자동으로 차트 스크립트가 실행됩니다. Python이 없거나 스크립트 실행이 실패하면 Unicode 텍스트 차트로 대체됩니다.
 
 ---
 

@@ -138,8 +138,10 @@ smart-daily-briefing/
 │   ├── customize.md
 │   ├── reports.md
 │   └── schedule.md
+├── scripts/
+│   └── generate-charts.py   # 차트 이미지 생성
 ├── reports/                 # 저장된 리포트 (JSON)
-├── briefings/               # 생성된 브리핑 (MD)
+├── briefings/               # 생성된 브리핑 (MD + charts/)
 ├── config.json.example      # 브리핑 개인화 설정 템플릿
 ├── CLAUDE.md                # 플러그인 컨텍스트
 └── .mcp.json                # MCP 서버 설정 (gitignored)

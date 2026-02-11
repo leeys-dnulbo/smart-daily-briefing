@@ -4,6 +4,7 @@
 # Reports and briefings (user data)
 reports/*.json
 briefings/*.md
+briefings/charts/
 !reports/.gitkeep
 !briefings/.gitkeep
 

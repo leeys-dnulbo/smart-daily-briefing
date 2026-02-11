@@ -70,6 +70,53 @@ config의 `briefing.sections` 배열에서 **`enabled: true`인 섹션만** 순�
 - date_range가 "30daysAgo"이면 → 이전 기간: startDate "60daysAgo", endDate "31daysAgo"
 - date_range가 "14daysAgo"이면 → 이전 기간: startDate "28daysAgo", endDate "15daysAgo"
 
+## 2.5단계: 차트 이미지 생성
+
+수집된 데이터로 차트 이미지를 생성합니다. 이 단계는 선택적이며, 실패해도 브리핑 생성은 계속됩니다.
+
+### 2.5.1 데이터 JSON 저장
+
+활성 섹션의 수집 데이터를 `briefings/charts/{오늘날짜}/data.json`에 저장하세요.
+
+```json
+{
+  "date": "2026-02-11",
+  "date_range": "7daysAgo",
+  "anomaly_threshold": 20,
+  "sections": {
+    "{섹션ID}": {
+      "name": "섹션 표시명",
+      "data": [{GA4 조회 결과 행들}]
+    },
+    "overview": {
+      "name": "핵심 지표 오버뷰",
+      "data": {
+        "current": {메트릭별 현재 값},
+        "previous": {메트릭별 이전 기간 값}
+      }
+    }
+  }
+}
+```
+
+### 2.5.2 차트 생성 스크립트 실행
+
+Bash 도구로 다음 명령을 실행하세요:
+
+```bash
+python3 scripts/generate-charts.py \
+  --input briefings/charts/{오늘날짜}/data.json \
+  --output-dir briefings/charts/{오늘날짜}/ \
+  --format auto
+```
+
+- matplotlib 설치 시 PNG, 미설치 시 SVG로 자동 생성됩니다.
+- 스크립트 실행이 실패하면 (Python 미설치 등) 차트 없이 3단계로 진행합니다.
+
+### 2.5.3 결과 확인
+
+`briefings/charts/{오늘날짜}/manifest.json`을 읽어 생성된 차트 목록과 형식을 확인합니다.
+
 ## 3단계: 브리핑 작성
 
 아래 형식으로 한국어 브리핑을 작성하세요. 활성화된 섹션만 포함합니다.
@@ -197,13 +244,31 @@ tablet   █████░░░░░░░░░░░░░░░  13.7%    
 
 ## 4단계: 저장
 
-브리핑을 `briefings/{오늘날짜}.md` 파일로 저장하세요.
-예: `briefings/2026-02-11.md`
+브리핑은 **터미널 출력**과 **파일 저장** 두 가지 형태로 제공됩니다.
 
-저장 후 사용자에게 안내하세요:
+### 터미널 출력
+
+Unicode 블록 차트가 포함된 브리핑을 터미널에 그대로 표시합니다 (위의 시각화 규칙 적용).
+
+### 파일 저장
+
+브리핑을 `briefings/{오늘날짜}.md` 파일로 저장합니다.
+
+**차트 이미지가 생성된 경우:**
+- 저장용 마크다운에서 각 Unicode 차트 블록을 이미지 링크로 교체합니다:
+  ```markdown
+  ![일별 트렌드](charts/{오늘날짜}/daily_trend.png)
+  ```
+- 이미지 경로는 `briefings/` 기준 상대경로입니다.
+
+**차트 이미지가 생성되지 않은 경우:**
+- Unicode 블록 차트가 포함된 마크다운을 그대로 저장합니다.
+
+### 저장 후 안내
 
 ```
 브리핑이 briefings/{날짜}.md에 저장되었습니다.
+{차트 이미지가 있으면: "차트 이미지 {N}개가 briefings/charts/{날짜}/에 저장되었습니다. (형식: PNG/SVG)"}
 
 현재 프리셋: {preset} ({활성 섹션 수}개 섹션)
 설정 변경: /smart-briefing:customize 또는 자연어로 요청

@@ -1,6 +1,6 @@
 ---
-description: 리포트 스케줄을 조회하거나 관리합니다.
-argument-hint: [list | 리포트이름 | run 리포트이름]
+description: 리포트 스케줄을 조회하거나 관리합니다. 자동 브리핑 스케줄 설치/해제도 지원합니다.
+argument-hint: [list | 리포트이름 | run 리포트이름 | install [HH:MM] | uninstall | status]
 ---
 
 # 스케줄 관리
@@ -11,18 +11,23 @@ $ARGUMENTS
 
 인수에 따라 아래와 같이 동작하세요:
 
-### 참고사항
-
-스케줄 설정은 리포트의 메타데이터로 저장됩니다.
-자동 실행 기능은 현재 지원되지 않으며, `run` 명령으로 수동 실행해야 합니다.
-스케줄 정보는 향후 자동화 연동 시 활용됩니다.
-
 ### 인수가 없거나 "list"인 경우
 
 `reports/` 디렉토리의 모든 JSON 파일을 읽어서 스케줄이 설정된 리포트만 표시합니다.
+추가로 자동 브리핑 스케줄 상태도 함께 표시합니다.
+
+1. Bash 도구로 자동 브리핑 상태를 확인합니다:
+   ```bash
+   bash scripts/manage-schedule.sh status
+   ```
+
+2. 결과를 아래 형식으로 표시합니다:
 
 ```
-## 활성 스케줄
+## 자동 브리핑
+{status 결과에 따라: "매일 HH:MM에 자동 실행 중" 또는 "미설정 (`/smart-briefing:schedule install` 로 설정)"}
+
+## 리포트 스케줄
 
 | 리포트 | 빈도 | 시간 | 요일 | 상태 |
 |--------|------|------|------|------|
@@ -54,6 +59,50 @@ $ARGUMENTS
 1. `reports/` 디렉토리에서 이름이 일치하는 리포트를 찾습니다
 2. query 정보를 기반으로 `get_ga4_data` MCP 도구를 호출합니다
 3. 결과를 분석하여 인사이트와 함께 표시합니다
+
+### 인수가 "install" 또는 "install HH:MM"인 경우
+
+macOS launchd를 이용하여 매일 자동 브리핑 스케줄을 설치합니다.
+
+1. 시간이 지정되지 않으면 사용자에게 물어봅니다 (기본값: 09:00)
+2. Bash 도구로 실행합니다:
+   ```bash
+   bash scripts/manage-schedule.sh install {HH:MM}
+   ```
+3. 결과를 확인하고 안내합니다:
+   ```
+   자동 브리핑 스케줄이 설정되었습니다!
+   - 시간: 매일 {HH:MM}
+   - 브리핑 결과: briefings/{날짜}.md
+   - 실행 로그: briefings/schedule.log
+
+   변경: /smart-briefing:schedule install {다른시간}
+   해제: /smart-briefing:schedule uninstall
+   ```
+
+### 인수가 "uninstall"인 경우
+
+자동 브리핑 스케줄을 해제합니다.
+
+1. Bash 도구로 실행합니다:
+   ```bash
+   bash scripts/manage-schedule.sh uninstall
+   ```
+2. 결과를 안내합니다:
+   - "OK"이면: "자동 브리핑 스케줄이 해제되었습니다."
+   - "NONE"이면: "설정된 스케줄이 없습니다."
+
+### 인수가 "status"인 경우
+
+현재 자동 브리핑 스케줄 상태를 확인합니다.
+
+1. Bash 도구로 실행합니다:
+   ```bash
+   bash scripts/manage-schedule.sh status
+   ```
+2. 결과를 표시합니다:
+   - "ACTIVE"이면: 매일 실행 시간과 마지막 실행 기록을 표시
+   - "NONE"이면: "자동 브리핑이 설정되어 있지 않습니다. `/smart-briefing:schedule install` 로 설정할 수 있습니다."
 
 ### 리포트를 찾을 수 없는 경우
 

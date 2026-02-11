@@ -16,5 +16,9 @@ briefings/charts/
 .mcp.json
 .mcp.local.json
 
+# Schedule (auto-generated, contains user-specific paths)
+scripts/run-briefing.sh
+briefings/schedule.log
+
 # User config (personalization)
 config.json

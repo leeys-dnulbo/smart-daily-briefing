@@ -91,6 +91,18 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 "/smart-briefing:schedule run 모바일분석"
 ```
 
+### 자동 브리핑 스케줄
+
+매일 정해진 시간에 자동으로 브리핑을 생성할 수 있습니다 (macOS):
+
+```
+/smart-briefing:schedule install 09:00   # 매일 09:00에 자동 브리핑
+/smart-briefing:schedule status          # 상태 확인
+/smart-briefing:schedule uninstall       # 해제
+```
+
+macOS launchd를 사용하며, 브리핑 결과는 `briefings/` 디렉토리에 저장됩니다.
+
 ### 브리핑 개인화
 
 브리핑 내용을 자연어로 맞춤 설정할 수 있습니다:
@@ -127,7 +139,8 @@ smart-daily-briefing/
 │   ├── reports.md             # /smart-briefing:reports
 │   └── schedule.md            # /smart-briefing:schedule
 ├── scripts/
-│   └── generate-charts.py     # 차트 이미지 생성 (matplotlib/SVG)
+│   ├── generate-charts.py     # 차트 이미지 생성 (matplotlib/SVG)
+│   └── manage-schedule.sh     # 자동 브리핑 스케줄 관리 (launchd)
 ├── config.json.example        # 브리핑 개인화 설정 템플릿
 ├── .mcp.json.example          # MCP 서버 설정 템플릿
 ├── CLAUDE.md                  # 자동 로드 컨텍스트

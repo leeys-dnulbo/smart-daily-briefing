@@ -1,6 +1,9 @@
 #!/bin/bash
 # Smart Daily Briefing - Slack 알림 전송 스크립트
-# 사용법: send-slack.sh [YYYY-MM-DD | test]
+# 사용법:
+#   send-slack.sh [YYYY-MM-DD]       브리핑 결과 전송
+#   send-slack.sh test               테스트 메시지 전송
+#   send-slack.sh report {name}      리포트 실행 결과 전송
 # config.json의 notifications.slack.webhook_url이 설정된 경우만 동작합니다.
 
 set -euo pipefail
@@ -70,6 +73,63 @@ print(json.dumps(payload, ensure_ascii=False))
   else
     log "ERROR: Slack test message failed (HTTP ${HTTP_STATUS})."
     echo "ERROR: 전송 실패 (HTTP ${HTTP_STATUS})"
+    exit 1
+  fi
+  exit 0
+fi
+
+# 리포트 모드
+if [ "$DATE" = "report" ]; then
+  REPORT_NAME="${2:-}"
+  if [ -z "$REPORT_NAME" ]; then
+    log "ERROR: report mode requires report name."
+    exit 1
+  fi
+
+  RESULT_FILE="$PLUGIN_DIR/reports/${REPORT_NAME}-latest.log"
+  if [ ! -f "$RESULT_FILE" ]; then
+    log "ERROR: Report result not found: $RESULT_FILE"
+    exit 1
+  fi
+
+  PAYLOAD=$(python3 << 'PYEOF' "$REPORT_NAME" "$RESULT_FILE"
+import json, sys
+
+report_name = sys.argv[1]
+result_path = sys.argv[2]
+
+with open(result_path, encoding="utf-8") as f:
+    content = f.read()
+
+# 2800자로 제한
+if len(content) > 2800:
+    content = content[:2800] + "\n..."
+
+blocks = [
+    {
+        "type": "header",
+        "text": {"type": "plain_text", "text": f"리포트 실행 완료: {report_name}", "emoji": True}
+    },
+    {
+        "type": "section",
+        "text": {"type": "mrkdwn", "text": content}
+    }
+]
+
+payload = {"blocks": blocks}
+print(json.dumps(payload, ensure_ascii=False))
+PYEOF
+  )
+
+  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X POST -H "Content-Type: application/json" \
+    -d "$PAYLOAD" \
+    "$WEBHOOK_URL")
+
+  if [ "$HTTP_STATUS" = "200" ]; then
+    log "Slack report notification sent: $REPORT_NAME"
+  else
+    log "ERROR: Slack report notification failed (HTTP ${HTTP_STATUS})"
     exit 1
   fi
   exit 0

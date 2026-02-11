@@ -1,6 +1,6 @@
 ---
 description: 리포트 스케줄을 조회하거나 관리합니다. 자동 브리핑 스케줄 설치/해제도 지원합니다.
-argument-hint: [list | 리포트이름 | run 리포트이름 | install [HH:MM] | uninstall | status]
+argument-hint: [list | 리포트이름 | run 리포트이름 | install [HH:MM] | uninstall | install-report | uninstall-report 리포트이름 | status]
 ---
 
 # 스케줄 관리
@@ -47,10 +47,36 @@ $ARGUMENTS
 해당 리포트의 스케줄을 설정하거나 변경합니다.
 
 1. `reports/` 디렉토리에서 이름이 일치하는 리포트를 찾습니다
-2. 사용자에게 빈도를 물어봅니다: 매일 / 매주 / 매월
+2. 사용자에게 빈도를 물어봅니다: 매일 / 매주
 3. 매주인 경우 요일을 물어봅니다
 4. 시간을 물어봅니다 (기본값: 09:00)
 5. 리포트 JSON의 schedule 필드를 업데이트합니다
+6. **자동 실행 등록:**
+   - macOS인 경우 Bash 도구로 실행:
+     ```bash
+     bash scripts/manage-schedule.sh install-report {리포트파일명} {frequency} {time} [day]
+     ```
+   - 비macOS인 경우: Cowork shortcut 생성 제안
+7. 완료 안내:
+   ```
+   리포트 '{이름}' 스케줄이 설정되었습니다!
+   - 빈도: {매일/매주 {요일}}
+   - 시간: {HH:MM}
+   - Slack 알림: {활성화됨/미설정}
+
+   해제: /smart-briefing:schedule uninstall-report {이름}
+   ```
+
+### 인수가 "uninstall-report {리포트이름}"인 경우
+
+해당 리포트의 자동 실행 스케줄을 해제합니다.
+
+1. Bash 도구로 실행합니다:
+   ```bash
+   bash scripts/manage-schedule.sh uninstall-report {리포트파일명}
+   ```
+2. 리포트 JSON의 schedule 필드를 null로 업데이트합니다
+3. 결과를 안내합니다
 
 ### 인수가 "run {리포트이름}"인 경우
 

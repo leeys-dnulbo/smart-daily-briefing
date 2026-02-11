@@ -69,7 +69,9 @@ GA4 MCP 서버가 연결되지 않았습니다.
 3. 시간을 물어봅니다 (기본값: 09:00)
 4. 리포트 파일의 schedule 필드를 업데이트합니다
 
-> **참고:** 스케줄 설정은 리포트의 메타데이터로 저장됩니다. `/smart-briefing:schedule run {이름}` 으로 수동 실행하거나, `/smart-briefing:schedule install {시간}` 으로 매일 자동 브리핑을 설정할 수 있습니다.
+> **참고:** 스케줄을 설정하면 macOS 환경에서 자동으로 launchd에 등록됩니다.
+> 수동 실행: `/smart-briefing:schedule run {이름}`
+> 스케줄 해제: `/smart-briefing:schedule uninstall-report {이름}`
 
 ### 스케줄 형식
 

@@ -18,6 +18,8 @@ briefings/charts/
 
 # Schedule (auto-generated, contains user-specific paths)
 scripts/run-briefing.sh
+scripts/run-report-*.sh
+reports/*-latest.log
 briefings/schedule.log
 
 # User config (personalization)

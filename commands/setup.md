@@ -1,10 +1,10 @@
 ---
-description: Smart Briefing 초기 설정을 안내합니다. GA4 MCP 서버 연결 상태를 확인하고 필요한 설정을 안내합니다.
+description: Smart Briefing 초기 설정을 안내합니다. GA4 MCP 서버 연결 상태를 확인하고, 필요 시 사용자로부터 정보를 입력받아 .mcp.json을 생성합니다.
 ---
 
 # Smart Briefing 초기 설정
 
-사용자의 GA4 연동 상태를 점검하고, 필요한 설정을 안내하세요.
+사용자의 GA4 연동 상태를 점검하고, 필요한 설정을 대화형으로 진행하세요.
 
 ## 1단계: MCP 서버 연결 확인
 
@@ -12,46 +12,58 @@ description: Smart Briefing 초기 설정을 안내합니다. GA4 MCP 서버 연
 
 ### MCP 도구가 있는 경우 → 2단계로 이동
 
-### MCP 도구가 없는 경우
+### MCP 도구가 없는 경우 → .mcp.json 자동 생성
 
-`.mcp.json` 파일이 프로젝트 루트에 존재하는지 확인하세요.
+사용자에게 두 가지 정보를 질문하세요:
 
-#### .mcp.json이 없는 경우
-
-```
-GA4 MCP 서버 설정이 필요합니다.
-
-.mcp.json.example을 복사하여 .mcp.json을 생성하고, 실제 값을 입력해주세요:
-
-  cp .mcp.json.example .mcp.json
-
-그리고 .mcp.json 파일을 열어 아래 두 값을 수정하세요:
-  - GOOGLE_APPLICATION_CREDENTIALS: 서비스 계정 JSON 파일의 절대 경로
-  - GA4_PROPERTY_ID: GA4 속성 ID (숫자)
-```
-
-#### .mcp.json이 있지만 연결이 안 되는 경우
+**질문 1: Google Cloud 서비스 계정 JSON 파일 경로**
 
 ```
-MCP 서버 설정은 있지만 연결되지 않았습니다. 아래를 확인해주세요:
-
-1. pipx가 설치되어 있는지: which pipx (없으면: brew install pipx)
-2. .mcp.json의 GOOGLE_APPLICATION_CREDENTIALS 경로에 파일이 실제로 존재하는지
-3. .mcp.json의 GA4_PROPERTY_ID가 올바른 숫자인지
-4. 서비스 계정에 GA4 뷰어 권한이 부여되어 있는지
-
-모두 확인했으면 Claude Code를 재시작해보세요.
+GA4 데이터에 접근하려면 Google Cloud 서비스 계정 JSON 파일이 필요합니다.
+파일의 절대 경로를 알려주세요. (예: /Users/이름/Downloads/service-account.json)
 ```
 
-#### 서비스 계정이 아직 없는 경우
+- 사용자가 경로를 입력하면, 해당 파일이 실제로 존재하는지 확인하세요.
+- 파일이 없으면 다시 입력을 요청하세요.
+- 서비스 계정이 아직 없으면 아래 생성 가이드를 안내하세요.
 
-아래 가이드를 단계별로 안내하세요:
+**질문 2: GA4 Property ID**
 
 ```
-GA4 연동을 위해 두 가지가 필요합니다:
+GA4 속성 ID를 알려주세요. (숫자, 예: 123456789)
 
-1. Google Cloud 서비스 계정 JSON 파일
-2. GA4 Property ID
+확인 방법: Google Analytics → 관리 → 속성 설정 → 속성 세부정보 → 속성 ID
+```
+
+**두 값을 모두 받으면 .mcp.json을 자동 생성하세요:**
+
+```json
+{
+  "mcpServers": {
+    "ga4-analytics": {
+      "command": "pipx",
+      "args": ["run", "google-analytics-mcp"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "{사용자가 입력한 JSON 파일 경로}",
+        "GA4_PROPERTY_ID": "{사용자가 입력한 Property ID}"
+      }
+    }
+  }
+}
+```
+
+생성 후 안내:
+
+```
+.mcp.json 파일을 생성했습니다.
+MCP 서버를 연결하려면 Claude Code를 재시작해주세요.
+재시작 후 /smart-briefing:setup 을 다시 실행하면 연결 테스트를 진행합니다.
+```
+
+### 서비스 계정이 없는 경우 (생성 가이드)
+
+```
+GA4 연동을 위해 Google Cloud 서비스 계정이 필요합니다.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -77,7 +89,7 @@ GA4 연동을 위해 두 가지가 필요합니다:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-완료 후 .mcp.json에 값을 입력하고 Claude Code를 재시작하세요.
+완료 후 다시 알려주세요. 자동으로 설정을 진행하겠습니다.
 ```
 
 ## 2단계: GA4 데이터 연결 테스트
@@ -104,8 +116,11 @@ GA4 연동을 위해 두 가지가 필요합니다:
 ```
 GA4 데이터 조회에 실패했습니다. 아래를 확인해주세요:
 
-1. 서비스 계정 JSON 파일 경로가 올바른지
-2. GA4 Property ID가 올바른 숫자인지
-3. 서비스 계정에 GA4 뷰어 권한이 있는지
-4. Google Analytics Data API가 활성화되어 있는지
+1. pipx가 설치되어 있는지: which pipx (없으면: brew install pipx)
+2. 서비스 계정 JSON 파일 경로가 올바른지
+3. GA4 Property ID가 올바른 숫자인지
+4. 서비스 계정에 GA4 뷰어 권한이 있는지
+5. Google Analytics Data API가 활성화되어 있는지
+
+모두 확인 후 Claude Code를 재시작하고 다시 시도해주세요.
 ```

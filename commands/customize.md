@@ -39,6 +39,10 @@ config.json이 손상되었습니다. 기본 설정으로 표시합니다.
 ❌ 캠페인 성과
 ...
 
+알림:
+{notifications.slack.webhook_url이 있으면: "Slack 알림: 활성화됨" 또는 "비활성화됨"}
+{없으면: "Slack 알림: 미설정 (\"Slack webhook 등록해줘\"로 설정)"}
+
 사용 가능한 프리셋: default, behavior, traffic, campaign, content
 변경: /smart-briefing:customize preset {이름}
 리셋: /smart-briefing:customize reset

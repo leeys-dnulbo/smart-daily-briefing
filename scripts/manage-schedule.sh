@@ -29,6 +29,7 @@ case "$ACTION" in
 
 PLUGIN_DIR="$PLUGIN_DIR"
 LOG_FILE="\$PLUGIN_DIR/briefings/schedule.log"
+TODAY=\$(date '+%Y-%m-%d')
 
 echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 브리핑 시작" >> "\$LOG_FILE"
 
@@ -38,6 +39,11 @@ claude -p \\
   >> "\$LOG_FILE" 2>&1
 
 echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 브리핑 완료" >> "\$LOG_FILE"
+
+# Slack 알림 전송 (config.json에 webhook_url이 설정된 경우만)
+if [ -f "\$PLUGIN_DIR/scripts/send-slack.sh" ]; then
+  bash "\$PLUGIN_DIR/scripts/send-slack.sh" "\$TODAY" >> "\$LOG_FILE" 2>&1
+fi
 RUNSCRIPT
     chmod +x "$RUN_SCRIPT"
 
@@ -93,6 +99,25 @@ PLIST
       SCHED_HOUR=$(plutil -extract StartCalendarInterval.Hour raw "$PLIST_PATH" 2>/dev/null)
       SCHED_MIN=$(plutil -extract StartCalendarInterval.Minute raw "$PLIST_PATH" 2>/dev/null)
       printf "ACTIVE: 매일 %02d:%02d\n" "$SCHED_HOUR" "$SCHED_MIN"
+      # Slack 알림 상태 확인
+      SLACK_URL=$(python3 -c "
+import json
+try:
+    with open('$PLUGIN_DIR/config.json') as f:
+        c = json.load(f)
+    s = c.get('notifications', {}).get('slack', {})
+    if s.get('webhook_url') and s.get('enabled', True):
+        print('ON')
+    else:
+        print('OFF')
+except Exception:
+    print('OFF')
+" 2>/dev/null || echo "OFF")
+      if [ "$SLACK_URL" = "ON" ]; then
+        echo "SLACK: 활성화됨"
+      else
+        echo "SLACK: 미설정"
+      fi
       if [ -f "$LOG_FILE" ]; then
         LAST_LINE=$(tail -1 "$LOG_FILE" 2>/dev/null || echo "")
         if [ -n "$LAST_LINE" ]; then

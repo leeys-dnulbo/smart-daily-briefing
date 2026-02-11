@@ -102,6 +102,33 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 ```
 
 macOS launchd를 사용하며, 브리핑 결과는 `briefings/` 디렉토리에 저장됩니다.
+Cowork 환경에서는 `/create-shortcut`으로 대체할 수 있습니다.
+
+### Slack 알림
+
+자동 브리핑 생성 후 Slack으로 요약을 받을 수 있습니다:
+
+```
+"Slack webhook 등록해줘"
+```
+
+또는 `config.json`에 직접 설정:
+
+```json
+{
+  "notifications": {
+    "slack": {
+      "webhook_url": "https://hooks.slack.com/services/T.../B.../...",
+      "enabled": true
+    }
+  }
+}
+```
+
+Slack Incoming Webhook 생성:
+1. [Slack API](https://api.slack.com/messaging/webhooks) 접속
+2. Slack App 생성 → Incoming Webhooks 활성화
+3. Webhook URL 복사 후 등록
 
 ### 브리핑 개인화
 
@@ -140,7 +167,8 @@ smart-daily-briefing/
 │   └── schedule.md            # /smart-briefing:schedule
 ├── scripts/
 │   ├── generate-charts.py     # 차트 이미지 생성 (matplotlib/SVG)
-│   └── manage-schedule.sh     # 자동 브리핑 스케줄 관리 (launchd)
+│   ├── manage-schedule.sh     # 자동 브리핑 스케줄 관리 (launchd)
+│   └── send-slack.sh          # Slack 웹훅 알림 전송
 ├── config.json.example        # 브리핑 개인화 설정 템플릿
 ├── .mcp.json.example          # MCP 서버 설정 템플릿
 ├── CLAUDE.md                  # 자동 로드 컨텍스트

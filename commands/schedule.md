@@ -64,21 +64,31 @@ $ARGUMENTS
 
 macOS launchd를 이용하여 매일 자동 브리핑 스케줄을 설치합니다.
 
-1. 시간이 지정되지 않으면 사용자에게 물어봅니다 (기본값: 09:00)
-2. Bash 도구로 실행합니다:
-   ```bash
-   bash scripts/manage-schedule.sh install {HH:MM}
-   ```
-3. 결과를 확인하고 안내합니다:
-   ```
-   자동 브리핑 스케줄이 설정되었습니다!
-   - 시간: 매일 {HH:MM}
-   - 브리핑 결과: briefings/{날짜}.md
-   - 실행 로그: briefings/schedule.log
+**환경 감지:** 먼저 현재 환경이 macOS인지 확인합니다.
+- macOS가 아닌 경우 (Cowork/Linux VM 등): launchd를 사용할 수 없으므로 아래 안내를 표시합니다:
+  ```
+  현재 환경에서는 launchd 기반 스케줄링을 사용할 수 없습니다.
+  대안: Cowork의 shortcut 스케줄 기능을 사용하세요.
+  → /create-shortcut 으로 매일 {HH:MM}에 "/smart-briefing:briefing" 을 실행하는 shortcut을 만들 수 있습니다.
+  ```
 
-   변경: /smart-briefing:schedule install {다른시간}
-   해제: /smart-briefing:schedule uninstall
-   ```
+- macOS인 경우:
+  1. 시간이 지정되지 않으면 사용자에게 물어봅니다 (기본값: 09:00)
+  2. Bash 도구로 실행합니다:
+     ```bash
+     bash scripts/manage-schedule.sh install {HH:MM}
+     ```
+  3. 결과를 확인하고 안내합니다:
+     ```
+     자동 브리핑 스케줄이 설정되었습니다!
+     - 시간: 매일 {HH:MM}
+     - 브리핑 결과: briefings/{날짜}.md
+     - 실행 로그: briefings/schedule.log
+     - Slack 알림: {config.json에 webhook_url이 있으면 "활성화됨", 없으면 "미설정 (\"Slack webhook 등록해줘\"로 설정)"}
+
+     변경: /smart-briefing:schedule install {다른시간}
+     해제: /smart-briefing:schedule uninstall
+     ```
 
 ### 인수가 "uninstall"인 경우
 
@@ -101,7 +111,8 @@ macOS launchd를 이용하여 매일 자동 브리핑 스케줄을 설치합니�
    bash scripts/manage-schedule.sh status
    ```
 2. 결과를 표시합니다:
-   - "ACTIVE"이면: 매일 실행 시간과 마지막 실행 기록을 표시
+   - "ACTIVE"이면: 매일 실행 시간, Slack 알림 상태, 마지막 실행 기록을 표시
+   - "SLACK: 활성화됨" 또는 "SLACK: 미설정"도 함께 표시
    - "NONE"이면: "자동 브리핑이 설정되어 있지 않습니다. `/smart-briefing:schedule install` 로 설정할 수 있습니다."
 
 ### 리포트를 찾을 수 없는 경우

@@ -16,6 +16,9 @@ description: 브리핑 개인화 설정 전문가. 사용자가 브리핑 내용
 - "캠페인 성과 **보여줘**" → ga-analyst (데이터 조회)
 - "이벤트 섹션 **추가해줘**" → 이 스킬 (설정 변경)
 - "이벤트 분석 **해줘**" → ga-analyst (데이터 조회)
+- "Slack **webhook** 등록해줘" → 이 스킬 (알림 설정)
+- "Slack **알림** 설정해줘" → 이 스킬 (알림 설정)
+- "알림 **꺼줘**" → 이 스킬 (알림 설정)
 
 ## 동작 방식
 
@@ -94,6 +97,35 @@ config.json이 손상되었습니다. 기본 설정을 기반으로 변경사항
 | landing_pages | 랜딩 페이지 | 랜딩 페이지별 성과 |
 | user_behavior | 사용자 행동패턴 | 참여율, 세션당 페이지뷰, 체류시간 등 (전주 비교 포함) |
 
+## 알림 설정
+
+사용자가 Slack webhook을 등록하겠다고 하면:
+
+1. Webhook URL을 입력받습니다
+2. URL이 `https://hooks.slack.com/services/`로 시작하는지 검증합니다
+   - 다른 `https://` URL은 경고 후 허용합니다
+   - `http://`이거나 유효하지 않으면 거부합니다
+3. `config.json`의 `notifications.slack.webhook_url`에 저장합니다
+4. `notifications.slack.enabled`를 `true`로 설정합니다
+5. Bash 도구로 테스트 메시지를 전송합니다: `bash scripts/send-slack.sh test`
+
+사용자가 알림을 끄겠다고 하면:
+- `config.json`의 `notifications.slack.enabled`를 `false`로 설정합니다
+
+### 알림 설정 응답 형식
+
+```
+Slack 알림이 설정되었습니다!
+
+| 항목 | 값 |
+|------|-----|
+| Webhook URL | https://hooks.slack.com/services/T.../B.../... |
+| 상태 | 활성화 |
+
+다음 자동 브리핑부터 Slack으로 알림을 받으실 수 있습니다.
+테스트 메시지를 보내볼까요?
+```
+
 ## config.json 구조
 
 ```json
@@ -116,6 +148,12 @@ config.json이 손상되었습니다. 기본 설정을 기반으로 변경사항
     "anomaly_threshold": 20,
     "max_insights": 5,
     "max_actions": 4
+  },
+  "notifications": {
+    "slack": {
+      "webhook_url": "https://hooks.slack.com/services/...",
+      "enabled": true
+    }
   }
 }
 ```

@@ -45,3 +45,32 @@ OpenClaw 사용자는 docs/openclaw-setup.md를 참고하세요.
 ## 응답 언어
 
 사용자와 항상 한국어로 소통합니다.
+
+## CRITICAL: 차트/PDF 생성 규칙
+
+**절대로 matplotlib/Python 차트 코드를 직접 작성하지 마세요.**
+**반드시 플러그인에 포함된 `scripts/generate-charts.py` 스크립트를 실행해야 합니다.**
+
+이 스크립트에는 한국어 폰트 자동 감지, 색상 팔레트, Python 자동 전환이 내장되어 있습니다.
+직접 코드를 작성하면 한글이 깨지고 디자인이 일관되지 않습니다.
+
+### 스크립트 실행 방법
+
+```bash
+# 1. 스크립트 찾기 (CLI + GUI 모두 지원)
+CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)
+[ -z "$CHART_SCRIPT" ] && CHART_SCRIPT="scripts/generate-charts.py"
+
+# 2. 실행 (Python은 스크립트가 자동으로 최적의 것을 선택)
+python3 "$CHART_SCRIPT" \
+  --input briefings/charts/{날짜}/data.json \
+  --output-dir briefings/charts/{날짜}/ \
+  --format auto
+```
+
+PDF 생성도 동일하게 `scripts/generate-pdf.py`를 사용하세요:
+```bash
+PDF_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-pdf.py" 2>/dev/null; } | head -1)
+[ -z "$PDF_SCRIPT" ] && PDF_SCRIPT="scripts/generate-pdf.py"
+python3 "$PDF_SCRIPT" --input briefings/{날짜}.md --output briefings/{날짜}.pdf
+```

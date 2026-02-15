@@ -25,7 +25,7 @@ def find_plugin_script(script_name):
             result = subprocess.run(
                 [
                     "find", d,
-                    "-path", f"*/smart-daily-briefing/scripts/{script_name}",
+                    "-name", script_name, "-path", "*smart-daily-briefing*",
                     "-type", "f",
                 ],
                 capture_output=True, text=True, timeout=5,
@@ -64,7 +64,7 @@ def check_bash(tool_input):
             "직접 matplotlib 코드 실행이 차단되었습니다 (한글 폰트 깨짐 방지).\n\n"
             "반드시 내장 스크립트를 사용하세요:\n"
             'CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\\ Support/Claude '
-            '-path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)\n'
+            '-name "generate-charts.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)\n'
             'python3 "$CHART_SCRIPT" --input {데이터JSON} --output-dir {출력디렉토리}/ --format auto'
             + (f"\n\n현재 스크립트 위치: {script}" if script else "")
         )
@@ -78,7 +78,7 @@ def check_bash(tool_input):
             "직접 weasyprint 코드 실행이 차단되었습니다 (한글 폰트 깨짐 방지).\n\n"
             "반드시 내장 스크립트를 사용하세요:\n"
             'PDF_SCRIPT=$({ find ~/.claude ~/Library/Application\\ Support/Claude '
-            '-path "*/smart-daily-briefing/scripts/generate-pdf.py" 2>/dev/null; } | head -1)\n'
+            '-name "generate-pdf.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)\n'
             'python3 "$PDF_SCRIPT" --input {마크다운파일} --output {PDF경로}'
             + (f"\n\n현재 스크립트 위치: {script}" if script else "")
         )
@@ -103,7 +103,7 @@ def check_write(tool_input):
             "matplotlib이 포함된 Python 파일 작성이 차단되었습니다 (한글 폰트 깨짐 방지).\n\n"
             "차트 코드를 직접 작성하지 마세요. 반드시 내장 스크립트를 사용하세요:\n"
             'CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\\ Support/Claude '
-            '-path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)\n'
+            '-name "generate-charts.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)\n'
             'python3 "$CHART_SCRIPT" --input {데이터JSON} --output-dir {출력디렉토리}/ --format auto'
             + (f"\n\n현재 스크립트 위치: {script}" if script else "")
         )
@@ -115,7 +115,7 @@ def check_write(tool_input):
             "weasyprint이 포함된 Python 파일 작성이 차단되었습니다 (한글 폰트 깨짐 방지).\n\n"
             "PDF 코드를 직접 작성하지 마세요. 반드시 내장 스크립트를 사용하세요:\n"
             'PDF_SCRIPT=$({ find ~/.claude ~/Library/Application\\ Support/Claude '
-            '-path "*/smart-daily-briefing/scripts/generate-pdf.py" 2>/dev/null; } | head -1)\n'
+            '-name "generate-pdf.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)\n'
             'python3 "$PDF_SCRIPT" --input {마크다운파일} --output {PDF경로}'
             + (f"\n\n현재 스크립트 위치: {script}" if script else "")
         )

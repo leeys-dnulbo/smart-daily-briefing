@@ -58,7 +58,7 @@ OpenClaw 사용자는 docs/openclaw-setup.md를 참고하세요.
 
 ```bash
 # 1. 스크립트 찾기 (CLI + GUI 모두 지원)
-CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)
+CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -name "generate-charts.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)
 [ -z "$CHART_SCRIPT" ] && CHART_SCRIPT="scripts/generate-charts.py"
 
 # 2. 실행 (Python은 스크립트가 자동으로 최적의 것을 선택)
@@ -70,7 +70,7 @@ python3 "$CHART_SCRIPT" \
 
 PDF 생성도 동일하게 `scripts/generate-pdf.py`를 사용하세요:
 ```bash
-PDF_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-pdf.py" 2>/dev/null; } | head -1)
+PDF_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -name "generate-pdf.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)
 [ -z "$PDF_SCRIPT" ] && PDF_SCRIPT="scripts/generate-pdf.py"
 python3 "$PDF_SCRIPT" --input briefings/{날짜}.md --output briefings/{날짜}.pdf
 ```

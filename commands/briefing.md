@@ -8,7 +8,7 @@ description: AI 일일 브리핑을 생성합니다. config.json 설정에 따�
 > 직접 matplotlib/weasyprint 코드를 작성하면 **PreToolUse 훅에 의해 자동 차단**됩니다.
 > 스크립트 찾기:
 > ```
-> CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)
+> CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -name "generate-charts.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)
 > ```
 
 GA4 데이터를 종합적으로 수집하고 분석하여 일일 브리핑을 생성하세요.
@@ -139,7 +139,7 @@ bounceRate: sum(각 행의 bounceRate × sessions) / sum(sessions)
 먼저 스크립트 위치를 찾습니다. Bash 도구로 실행:
 
 ```bash
-CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)
+CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -name "generate-charts.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)
 [ -z "$CHART_SCRIPT" ] && CHART_SCRIPT="scripts/generate-charts.py"
 echo "Chart script: $CHART_SCRIPT"
 ls -la "$CHART_SCRIPT" 2>/dev/null || echo "NOT FOUND"
@@ -148,7 +148,7 @@ ls -la "$CHART_SCRIPT" 2>/dev/null || echo "NOT FOUND"
 스크립트를 찾았으면 Bash 도구로 실행:
 
 ```bash
-CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)
+CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -name "generate-charts.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)
 [ -z "$CHART_SCRIPT" ] && CHART_SCRIPT="scripts/generate-charts.py"
 PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
 $PYTHON "$CHART_SCRIPT" \
@@ -322,7 +322,7 @@ config.json에 `export.auto_pdf`가 `true`로 설정되어 있으면, 저장 완
 
 Bash 도구로 실행:
 ```bash
-PDF_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-pdf.py" 2>/dev/null; } | head -1)
+PDF_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -name "generate-pdf.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)
 [ -z "$PDF_SCRIPT" ] && PDF_SCRIPT="scripts/generate-pdf.py"
 PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
 $PYTHON "$PDF_SCRIPT" \

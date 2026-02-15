@@ -19,6 +19,7 @@ import json
 import math
 import os
 import platform
+import subprocess
 import sys
 
 # ---------- matplotlib 감지 ----------
@@ -26,7 +27,9 @@ try:
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    import matplotlib.font_manager as fm
     import matplotlib.ticker as ticker
+    from matplotlib.patches import FancyBboxPatch
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
@@ -318,131 +321,293 @@ class SvgChartGenerator:
 
 
 # ============================================================
-#  Matplotlib Chart Generator
+#  폰트 검색 경로 (플랫폼별)
+# ============================================================
+FONT_PATHS = {
+    'Darwin': [
+        '/System/Library/Fonts/AppleSDGothicNeo.ttc',
+        '/System/Library/Fonts/Supplemental/AppleGothic.ttf',
+        '/Library/Fonts/NanumGothic.otf',
+        '/Library/Fonts/NanumGothic.ttf',
+    ],
+    'Linux': [
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+        '/usr/share/fonts/nanum/NanumGothic.ttf',
+    ],
+}
+
+
+def _find_korean_font():
+    """시스템에서 한국어 폰트 파일을 찾아 반환"""
+    system = platform.system()
+    for path in FONT_PATHS.get(system, []):
+        if os.path.exists(path):
+            return path
+
+    # fc-list fallback
+    try:
+        result = subprocess.run(
+            ['fc-list', ':lang=ko', 'file'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            for line in result.stdout.strip().split('\n'):
+                path = line.strip().rstrip(':').strip()
+                if path and os.path.exists(path):
+                    return path
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    return None
+
+
+# ============================================================
+#  Matplotlib Chart Generator (프로페셔널 대시보드 스타일)
 # ============================================================
 class MatplotlibChartGenerator:
 
+    # 세련된 색상 팔레트 (Google Analytics 스타일)
+    PALETTE = ['#4285F4', '#34A853', '#FBBC05', '#EA4335', '#9334E6',
+               '#00ACC1', '#5C6BC0', '#43A047', '#FB8C00', '#E53935']
+    ACCENT = '#4285F4'
+    SUBTLE_TEXT = '#5F6368'
+    AXIS_COLOR = '#DADCE0'
+    GRID_ALPHA = 0.25
+
     def __init__(self):
         self._setup_font()
+        self._apply_global_style()
 
     def _setup_font(self):
-        system = platform.system()
-        if system == 'Darwin':
-            plt.rcParams['font.family'] = 'AppleGothic'
-        elif system == 'Linux':
-            plt.rcParams['font.family'] = 'NanumGothic'
-        plt.rcParams['axes.unicode_minus'] = False
-        plt.rcParams['figure.facecolor'] = BG_COLOR
-        plt.rcParams['axes.facecolor'] = BG_COLOR
+        """폰트 파일을 직접 등록하여 환경에 무관하게 한국어 렌더링"""
+        font_path = _find_korean_font()
+        if font_path:
+            fm.fontManager.addfont(font_path)
+            prop = fm.FontProperties(fname=font_path)
+            plt.rcParams['font.family'] = prop.get_name()
+        else:
+            system = platform.system()
+            if system == 'Darwin':
+                plt.rcParams['font.family'] = 'AppleGothic'
+            elif system == 'Linux':
+                plt.rcParams['font.family'] = 'NanumGothic'
+
+    def _apply_global_style(self):
+        """전역 스타일: 깔끔한 대시보드 룩"""
+        plt.rcParams.update({
+            'axes.unicode_minus': False,
+            'figure.facecolor': '#FFFFFF',
+            'axes.facecolor': '#FFFFFF',
+            'axes.edgecolor': self.AXIS_COLOR,
+            'axes.linewidth': 0.8,
+            'axes.grid': False,
+            'xtick.color': self.SUBTLE_TEXT,
+            'ytick.color': self.SUBTLE_TEXT,
+            'xtick.labelsize': 9,
+            'ytick.labelsize': 9,
+            'text.color': TEXT_COLOR,
+            'figure.dpi': 150,
+            'savefig.dpi': 150,
+            'savefig.bbox': 'tight',
+            'savefig.pad_inches': 0.3,
+        })
+
+    def _clean_axes(self, ax, grid_axis='y'):
+        """공통: 상단/우측 spine 제거, 미니멀 그리드"""
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color(self.AXIS_COLOR)
+        ax.spines['bottom'].set_color(self.AXIS_COLOR)
+        ax.tick_params(axis='both', which='both', length=0, pad=6)
+        if grid_axis:
+            ax.grid(axis=grid_axis, alpha=self.GRID_ALPHA, linestyle='--',
+                    color=self.AXIS_COLOR, linewidth=0.6)
+
+    def _set_title(self, ax, title):
+        """좌측 정렬 + 하단 액센트 라인 타이틀"""
+        ax.set_title(title, fontsize=13, fontweight='bold', color=TEXT_COLOR,
+                     loc='left', pad=16)
+        # 타이틀 아래 얇은 액센트 라인
+        ax.annotate('', xy=(0, 1.02), xycoords='axes fraction',
+                    xytext=(0.15, 1.02), textcoords='axes fraction',
+                    arrowprops=dict(arrowstyle='-', color=self.ACCENT, lw=2.5))
 
     def generate_daily_trend(self, title, labels, sessions, users=None, *, output_path):
         """일별 트렌드: 바 + 라인 복합 차트"""
-        fig, ax1 = plt.subplots(figsize=(8, 4))
+        fig, ax1 = plt.subplots(figsize=(10, 4.5))
+        self._clean_axes(ax1)
 
         x = range(len(labels))
-        ax1.bar(x, sessions, color=COLORS[0], alpha=0.7, label='세션', width=0.6)
-        ax1.set_ylabel('세션', color=COLORS[0])
-        ax1.tick_params(axis='y', labelcolor=COLORS[0])
+        bar_width = 0.55
+
+        # 막대 차트 (약간의 둥근 느낌 + 그림자)
+        ax1.bar(x, sessions, color=self.PALETTE[0], alpha=0.85,
+                width=bar_width, edgecolor='white', linewidth=0.5,
+                label='세션', zorder=3)
+
+        ax1.set_ylabel('세션', fontsize=10, color=self.PALETTE[0], fontweight='600')
+        ax1.tick_params(axis='y', labelcolor=self.PALETTE[0])
         ax1.set_xticks(x)
-        ax1.set_xticklabels(labels, rotation=45, ha='right', fontsize=9)
+        ax1.set_xticklabels(labels, rotation=0, ha='center', fontsize=9)
         ax1.yaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: format_number(int(v))))
 
         if users:
             ax2 = ax1.twinx()
-            ax2.plot(x, users, color=COLORS[1], marker='o', linewidth=2, label='사용자')
-            ax2.set_ylabel('사용자', color=COLORS[1])
-            ax2.tick_params(axis='y', labelcolor=COLORS[1])
+            ax2.spines['top'].set_visible(False)
+            ax2.spines['right'].set_color(self.AXIS_COLOR)
+            ax2.tick_params(axis='both', which='both', length=0, pad=6)
+            ax2.plot(x, users, color=self.PALETTE[1], marker='o', markersize=6,
+                     linewidth=2.5, label='사용자', zorder=4,
+                     markerfacecolor='white', markeredgewidth=2,
+                     markeredgecolor=self.PALETTE[1])
+            ax2.set_ylabel('사용자', fontsize=10, color=self.PALETTE[1], fontweight='600')
+            ax2.tick_params(axis='y', labelcolor=self.PALETTE[1])
+            ax2.yaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: format_number(int(v))))
 
-        ax1.set_title(title, fontsize=14, fontweight='bold', pad=15)
-        ax1.grid(axis='y', alpha=0.3)
+            # 통합 범례
+            lines1, labels1 = ax1.get_legend_handles_labels()
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left',
+                       frameon=True, framealpha=0.9, edgecolor=self.AXIS_COLOR,
+                       fontsize=9, borderpad=0.8)
+
+        self._set_title(ax1, title)
         fig.tight_layout()
-        fig.savefig(output_path, dpi=120, bbox_inches='tight')
+        fig.savefig(output_path, facecolor='white')
         plt.close(fig)
 
     def generate_horizontal_bar(self, title, labels, values, show_percent=False, *, output_path):
         """가로 막대 차트"""
         n = len(labels)
-        fig, ax = plt.subplots(figsize=(8, max(3, n * 0.5)))
+        fig_height = max(3.5, n * 0.65 + 1.5)
+        fig, ax = plt.subplots(figsize=(10, fig_height))
+        self._clean_axes(ax, grid_axis='x')
+        ax.spines['left'].set_visible(False)
 
-        display_labels = [l[:25] + '...' if len(l) > 25 else l for l in labels]
-        colors = [COLORS[i % len(COLORS)] for i in range(n)]
-        bars = ax.barh(range(n), values, color=colors, height=0.6)
+        display_labels = [l[:28] + '...' if len(l) > 28 else l for l in labels]
+        colors = [self.PALETTE[i % len(self.PALETTE)] for i in range(n)]
+        max_val = max(values) if values else 1
+        total = sum(values) if show_percent else 0
+
+        # 배경 바 (프로그레스 바 스타일)
+        for i in range(n):
+            ax.barh(i, max_val * 1.02, height=0.55, color='#F1F3F4',
+                    edgecolor='none', zorder=1)
+
+        # 값 바
+        bars = ax.barh(range(n), values, height=0.55, color=colors,
+                       edgecolor='white', linewidth=0.3, zorder=2)
 
         ax.set_yticks(range(n))
         ax.set_yticklabels(display_labels, fontsize=10)
         ax.invert_yaxis()
-        ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
-        ax.grid(axis='x', alpha=0.3)
-        ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: format_number(int(v))))
+        ax.set_xlim(0, max_val * 1.25)
+        ax.xaxis.set_visible(False)
 
-        total = sum(values) if show_percent else 0
+        # 값 라벨
         for i, (bar, val) in enumerate(zip(bars, values)):
             text = format_number(val)
             if show_percent and total > 0:
-                text += f' ({val / total:.1%})'
-            ax.text(bar.get_width() + max(values) * 0.02, bar.get_y() + bar.get_height() / 2,
-                    text, va='center', fontsize=9)
+                text += f'  ({val / total:.1%})'
+            ax.text(bar.get_width() + max_val * 0.03,
+                    bar.get_y() + bar.get_height() / 2,
+                    text, va='center', fontsize=9.5, color=self.SUBTLE_TEXT,
+                    fontweight='500')
 
+        self._set_title(ax, title)
         fig.tight_layout()
-        fig.savefig(output_path, dpi=120, bbox_inches='tight')
+        fig.savefig(output_path, facecolor='white')
         plt.close(fig)
 
     def generate_pie(self, title, labels, values, *, output_path):
-        """도넛 차트"""
-        fig, ax = plt.subplots(figsize=(6, 5))
-        colors = [COLORS[i % len(COLORS)] for i in range(len(labels))]
+        """도넛 차트 (중앙에 총합 표시)"""
+        fig, ax = plt.subplots(figsize=(7, 5.5))
+        colors = [self.PALETTE[i % len(self.PALETTE)] for i in range(len(labels))]
         total = sum(values) if values else 1
 
         wedges, texts, autotexts = ax.pie(
-            values, labels=None, colors=colors, autopct='%1.1f%%',
-            startangle=90, pctdistance=0.75,
-            wedgeprops={'width': 0.4, 'edgecolor': 'white', 'linewidth': 2},
+            values, labels=None, colors=colors,
+            autopct=lambda pct: f'{pct:.1f}%' if pct > 5 else '',
+            startangle=90, pctdistance=0.78,
+            wedgeprops={'width': 0.38, 'edgecolor': 'white', 'linewidth': 2.5},
         )
         for t in autotexts:
-            t.set_fontsize(10)
+            t.set_fontsize(9.5)
             t.set_fontweight('bold')
+            t.set_color('#444444')
 
-        ax.legend(
-            [f'{l} ({format_number(v)})' for l, v in zip(labels, values)],
-            loc='lower center', bbox_to_anchor=(0.5, -0.15),
+        # 중앙 총합 표시
+        ax.text(0, 0.06, format_number(total), ha='center', va='center',
+                fontsize=20, fontweight='bold', color=TEXT_COLOR)
+        ax.text(0, -0.12, '총합', ha='center', va='center',
+                fontsize=9, color=self.SUBTLE_TEXT)
+
+        # 깔끔한 범례 (박스 스타일)
+        legend = ax.legend(
+            [f'{l}  {format_number(v)}' for l, v in zip(labels, values)],
+            loc='lower center', bbox_to_anchor=(0.5, -0.08),
             ncol=min(len(labels), 3), fontsize=9,
+            frameon=True, framealpha=0.9, edgecolor=self.AXIS_COLOR,
+            borderpad=0.8, columnspacing=2,
+            handlelength=1.2, handleheight=0.8,
         )
-        ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
+        legend.get_frame().set_linewidth(0.6)
 
+        self._set_title(ax, title)
         fig.tight_layout()
-        fig.savefig(output_path, dpi=120, bbox_inches='tight')
+        fig.savefig(output_path, facecolor='white')
         plt.close(fig)
 
     def generate_change_bar(self, title, labels, changes, threshold=20, *, output_path):
-        """양방향 가로 막대 (변화율)"""
+        """양방향 가로 막대 (변화율) - 이상치 하이라이트"""
         n = len(labels)
-        fig, ax = plt.subplots(figsize=(8, max(3, n * 0.5)))
+        fig_height = max(3.5, n * 0.7 + 1.5)
+        fig, ax = plt.subplots(figsize=(10, fig_height))
+        self._clean_axes(ax, grid_axis=None)
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
 
-        bar_colors = [POSITIVE_COLOR if c >= 0 else NEGATIVE_COLOR for c in changes]
-        bars = ax.barh(range(n), changes, color=bar_colors, height=0.6)
+        max_abs = max(abs(c) for c in changes) if changes else 1
+
+        for i, (label, change) in enumerate(zip(labels, changes)):
+            is_anomaly = abs(change) >= threshold
+            color = POSITIVE_COLOR if change >= 0 else NEGATIVE_COLOR
+            alpha = 0.9 if is_anomaly else 0.7
+
+            # 막대
+            bar = ax.barh(i, change, height=0.55, color=color, alpha=alpha,
+                          edgecolor='white', linewidth=0.3, zorder=2)
+
+            # 이상치 마커
+            if is_anomaly:
+                ax.barh(i, change, height=0.55, color=color, alpha=0.15,
+                        edgecolor=color, linewidth=1.5, linestyle='--', zorder=1)
+
+            # 값 라벨
+            sign = '+' if change >= 0 else ''
+            text = f'{sign}{change:.1f}%'
+            if is_anomaly:
+                text += '  ⚠'
+            offset = max_abs * 0.06 * (1 if change >= 0 else -1)
+            ax.text(change + offset, i,
+                    text, va='center', fontsize=10, fontweight='bold',
+                    color=color,
+                    ha='left' if change >= 0 else 'right')
+
+        # 중앙선
+        ax.axvline(x=0, color='#9AA0A6', linewidth=1.2, zorder=3)
 
         ax.set_yticks(range(n))
         ax.set_yticklabels(labels, fontsize=10)
         ax.invert_yaxis()
-        ax.axvline(x=0, color='#9AA0A6', linewidth=1.5)
-        ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
-        ax.grid(axis='x', alpha=0.3)
-        ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: f'{v:+.1f}%'))
+        ax.set_xlim(-max_abs * 1.5, max_abs * 1.5)
+        ax.xaxis.set_visible(False)
 
-        for i, (bar, change) in enumerate(zip(bars, changes)):
-            is_anomaly = abs(change) >= threshold
-            sign = '+' if change >= 0 else ''
-            text = f'{sign}{change:.1f}%'
-            if is_anomaly:
-                text += ' [!]'
-            x_pos = bar.get_width() + (max(abs(c) for c in changes) * 0.05 * (1 if change >= 0 else -1))
-            ax.text(x_pos, bar.get_y() + bar.get_height() / 2,
-                    text, va='center', fontsize=9, fontweight='bold',
-                    color=bar_colors[i],
-                    ha='left' if change >= 0 else 'right')
-
+        self._set_title(ax, title)
         fig.tight_layout()
-        fig.savefig(output_path, dpi=120, bbox_inches='tight')
+        fig.savefig(output_path, facecolor='white')
         plt.close(fig)
 
 
@@ -659,8 +824,8 @@ def main():
     parser.add_argument('--format', choices=['auto', 'png', 'svg'], default='auto', help='출력 형식')
     args = parser.parse_args()
 
-    if sys.version_info < (3, 6):
-        print('ERROR: Python 3.6 이상이 필요합니다.', file=sys.stderr)
+    if sys.version_info < (3, 9):
+        print('ERROR: Python 3.9 이상이 필요합니다.', file=sys.stderr)
         sys.exit(1)
 
     try:

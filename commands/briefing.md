@@ -113,10 +113,11 @@ config의 `briefing.sections` 배열에서 **`enabled: true`인 섹션만** 순�
 
 ### 2.5.2 차트 생성 스크립트 실행
 
-Bash 도구로 다음 명령을 실행하세요:
+Bash 도구로 다음 명령을 실행하세요. **Python 경로는 brew Python을 우선 사용합니다** (시스템 Python은 한글 폰트/라이브러리 문제가 발생할 수 있음):
 
 ```bash
-python3 scripts/generate-charts.py \
+PYTHON=$(command -v /opt/homebrew/bin/python3 || command -v python3) && \
+$PYTHON scripts/generate-charts.py \
   --input briefings/charts/{오늘날짜}/data.json \
   --output-dir briefings/charts/{오늘날짜}/ \
   --format auto
@@ -284,7 +285,8 @@ config.json에 `export.auto_pdf`가 `true`로 설정되어 있으면, 저장 완
 
 Bash 도구로 실행:
 ```bash
-python3 scripts/generate-pdf.py \
+PYTHON=$(command -v /opt/homebrew/bin/python3 || command -v python3) && \
+$PYTHON scripts/generate-pdf.py \
   --input briefings/{오늘날짜}.md \
   --output briefings/{오늘날짜}.pdf \
   --charts-dir briefings/charts/{오늘날짜}/

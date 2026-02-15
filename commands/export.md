@@ -29,10 +29,11 @@ $ARGUMENTS
 
 ### PDF 생성
 
-차트 디렉토리 확인 후 Bash 도구로 실행합니다:
+차트 디렉토리 확인 후 Bash 도구로 실행합니다. **brew Python을 우선 사용합니다** (시스템 Python은 한글 폰트/라이브러리 문제가 발생할 수 있음):
 
 ```bash
-python3 scripts/generate-pdf.py \
+PYTHON=$(command -v /opt/homebrew/bin/python3 || command -v python3) && \
+$PYTHON scripts/generate-pdf.py \
   --input briefings/{날짜}.md \
   --output briefings/{날짜}.pdf \
   --charts-dir briefings/charts/{날짜}/

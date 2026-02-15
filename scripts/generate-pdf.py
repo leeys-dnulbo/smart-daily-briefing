@@ -14,9 +14,11 @@ Usage:
 """
 
 import argparse
+import glob
 import os
 import platform
 import re
+import subprocess
 import sys
 
 # ---------- 의존성 감지 ----------
@@ -43,26 +45,100 @@ NEGATIVE_COLOR = '#EA4335'
 
 
 # ---------- 한국어 폰트 ----------
-def get_font_css():
-    """플랫폼별 한국어 폰트 CSS 반환 (generate-charts.py _setup_font 패턴)"""
+
+# 플랫폼별 한국어 폰트 검색 경로 (우선순위 순)
+FONT_SEARCH = {
+    'Darwin': [
+        # macOS 시스템 폰트
+        '/System/Library/Fonts/AppleSDGothicNeo.ttc',
+        '/System/Library/Fonts/Supplemental/AppleGothic.ttf',
+        '/Library/Fonts/NanumGothic.otf',
+        '/Library/Fonts/NanumGothic.ttf',
+    ],
+    'Linux': [
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+        '/usr/share/fonts/nanum/NanumGothic.ttf',
+    ],
+}
+
+
+def _find_font_file(candidates):
+    """후보 경로 목록에서 존재하는 첫 번째 폰트 파일 반환"""
+    for path in candidates:
+        # glob 패턴 지원 (예: /usr/share/fonts/**/NanumGothic.ttf)
+        matches = glob.glob(path)
+        if matches:
+            return matches[0]
+        if os.path.exists(path):
+            return path
+
+    # fc-list fallback: fontconfig로 한국어 폰트 검색
+    try:
+        result = subprocess.run(
+            ['fc-list', ':lang=ko', 'file'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            for line in result.stdout.strip().split('\n'):
+                path = line.strip().rstrip(':').strip()
+                if path and os.path.exists(path):
+                    return path
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    return None
+
+
+def get_font_face_css():
+    """@font-face CSS를 생성하여 weasyprint가 한국어 폰트를 확실히 찾도록 함"""
     system = platform.system()
+    candidates = FONT_SEARCH.get(system, [])
+    font_path = _find_font_file(candidates)
+
+    if not font_path:
+        # 폰트 파일을 찾지 못하면 font-family 이름만 사용 (fallback)
+        return '', _get_font_family_name(system), _get_mono_family_name(system)
+
+    font_uri = f'file://{os.path.abspath(font_path)}'
+
+    font_face_css = f"""
+  @font-face {{
+    font-family: 'BriefingFont';
+    src: url('{font_uri}');
+    font-weight: normal;
+    font-style: normal;
+  }}
+  @font-face {{
+    font-family: 'BriefingFont';
+    src: url('{font_uri}');
+    font-weight: bold;
+    font-style: normal;
+  }}"""
+
+    font_family = f"'BriefingFont', {_get_font_family_name(system)}"
+    mono_family = f"{_get_mono_family_name(system)}"
+
+    return font_face_css, font_family, mono_family
+
+
+def _get_font_family_name(system):
+    """CSS font-family 이름 (fallback용)"""
     if system == 'Darwin':
         return "'Apple SD Gothic Neo', 'AppleGothic', sans-serif"
     elif system == 'Linux':
         return "'Noto Sans KR', 'NanumGothic', sans-serif"
-    else:
-        return "sans-serif"
+    return "sans-serif"
 
 
-def get_mono_font_css():
-    """코드/Unicode 블록용 모노스페이스 폰트"""
-    system = platform.system()
+def _get_mono_family_name(system):
+    """코드/Unicode 블록용 모노스페이스 font-family"""
     if system == 'Darwin':
         return "'Menlo', 'Apple SD Gothic Neo', monospace"
     elif system == 'Linux':
         return "'D2Coding', 'Noto Sans Mono CJK KR', monospace"
-    else:
-        return "monospace"
+    return "monospace"
 
 
 # ---------- HTML 템플릿 ----------
@@ -71,6 +147,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <style>
+  {font_face}
   @page {{
     size: A4;
     margin: 2cm 2cm 2.5cm 2cm;
@@ -220,11 +297,15 @@ def generate_pdf(input_path, output_path, charts_dir=None):
     base_dir = os.path.dirname(os.path.abspath(input_path))
     html_body = resolve_image_paths(html_body, base_dir, charts_dir)
 
+    # 한국어 폰트 @font-face 생성
+    font_face_css, font_family, mono_family = get_font_face_css()
+
     # HTML 템플릿에 래핑
     full_html = HTML_TEMPLATE.format(
         content=html_body,
-        font=get_font_css(),
-        mono_font=get_mono_font_css(),
+        font_face=font_face_css,
+        font=font_family,
+        mono_font=mono_family,
         primary=PRIMARY_COLOR,
         text_color=TEXT_COLOR,
         secondary_text=SECONDARY_TEXT,

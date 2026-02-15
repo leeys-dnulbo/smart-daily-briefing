@@ -1,6 +1,7 @@
 ---
 name: report-manager
-description: 리포트 저장 및 스케줄 관리. 사용자가 분석 결과를 저장하거나 정기 리포트를 설정하고 싶을 때 자동으로 활성화됩니다. 예시: "리포트로 저장해줘", "매일 받고 싶어", "스케줄 설정", "리포트 삭제"
+description: 리포트 저장 및 관리. 사용자가 분석 결과를 저장하거나 리포트를 실행/삭제하고 싶을 때 자동으로 활성화됩니다. 예시: "리포트로 저장해줘", "리포트 실행해줘", "리포트 삭제", "브리핑 생성해줘"
+metadata: {"openclaw":{"emoji":"📋","requires":{"bins":["pipx"]}}}
 ---
 
 # 리포트 관리 에이전트
@@ -14,7 +15,8 @@ description: 리포트 저장 및 스케줄 관리. 사용자가 분석 결과�
 
 ```
 GA4 MCP 서버가 연결되지 않았습니다.
-`/smart-briefing:setup` 으로 초기 설정을 진행해주세요.
+- Claude Code: `/smart-briefing:setup` 으로 초기 설정을 진행해주세요.
+- OpenClaw: docs/openclaw-setup.md를 참고하여 설정해주세요.
 ```
 
 ## 리포트 저장
@@ -69,7 +71,7 @@ GA4 MCP 서버가 연결되지 않았습니다.
 3. 시간을 물어봅니다 (기본값: 09:00)
 4. 리포트 파일의 schedule 필드를 업데이트합니다
 
-> **참고:** 스케줄을 설정하면 macOS 환경에서 자동으로 launchd에 등록됩니다.
+> **참고:** Claude Code (macOS) 환경에서는 스케줄 설정 시 자동으로 launchd에 등록됩니다.
 > 수동 실행: `/smart-briefing:schedule run {이름}`
 > 스케줄 해제: `/smart-briefing:schedule uninstall-report {이름}`
 
@@ -117,3 +119,26 @@ GA4 MCP 서버가 연결되지 않았습니다.
 `/smart-briefing:reports` 로 전체 리포트 목록을 확인할 수 있어요.
 정기적으로 받아보시겠어요? (매일/매주/매월)
 ```
+
+## OpenClaw 환경 지원
+
+OpenClaw 환경에서는 슬래시 명령 대신 자연어로 동작합니다.
+
+### 브리핑 생성 요청
+
+사용자가 "브리핑 생성해줘", "일일 브리핑 만들어줘", "오늘 GA 리포트 보여줘" 등을 요청하면:
+
+1. `config.json`을 읽어 활성화된 섹션 확인 (없으면 기본 프리셋 사용)
+2. 각 활성 섹션에 대해 `get_ga4_data` MCP 도구로 데이터 수집
+3. `compare_previous: true` 섹션은 이전 기간도 추가 조회
+4. 수집된 데이터를 종합 분석하여 브리핑 작성
+5. `briefings/{오늘날짜}.md`에 저장
+
+> 차트 생성이 가능한 환경이면 `python3 scripts/generate-charts.py`도 실행합니다.
+
+### OpenClaw 스케줄링 안내
+
+사용자가 "매일 브리핑 받고 싶어", "자동으로 스케줄 걸어줘" 등 스케줄 관련 요청을 하면:
+
+- **OpenClaw 환경**: `schedule-helper` 스킬이 담당합니다. 해당 스킬로 안내하세요.
+- **Claude Code 환경**: `/smart-briefing:schedule` 커맨드를 안내하세요.

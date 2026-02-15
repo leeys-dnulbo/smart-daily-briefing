@@ -16,6 +16,9 @@ briefings/charts/
 .mcp.json
 .mcp.local.json
 
+# OpenClaw config (may contain credentials)
+openclaw.json
+
 # Schedule (auto-generated, contains user-specific paths)
 scripts/run-briefing.sh
 scripts/run-report-*.sh

@@ -1,19 +1,20 @@
 # Smart Daily Briefing
 
-Claude Code 플러그인으로 GA4 데이터를 대화형으로 조회하고, 리포트를 저장하고, 일일 브리핑을 생성합니다.
+GA4 데이터를 대화형으로 조회하고, 리포트를 저장하고, 일일 브리핑을 생성하는 AI 에이전트 플러그인입니다.
+**Claude Code**와 **OpenClaw** 두 플랫폼에서 모두 사용할 수 있습니다.
 
 ## 사전 요구사항
 
-- Claude Code 1.0.33+
-- Google Cloud 서비스 계정 JSON 파일
-- GA4 Property ID
+- **공통**: Google Cloud 서비스 계정 JSON 파일, GA4 Property ID, `pipx`
+- **Claude Code**: Claude Code 1.0.33+
+- **OpenClaw**: OpenClaw 최신 버전
 
 ## 설치
 
-### 1. 플러그인 설치
+### Claude Code에서 설치
 
 ```bash
-# 마켓플레이스에서 설치하는 경우
+# 마켓플레이스에서 설치
 /plugin marketplace add leeys-dnulbo/smart-daily-briefing
 /plugin install smart-briefing@smart-daily-briefing
 
@@ -23,12 +24,9 @@ claude --plugin-dir ./smart-daily-briefing
 
 GA4 MCP 서버는 플러그인에 포함되어 있어 자동으로 설치/실행됩니다.
 
-### 2. MCP 서버 설정
-
-플러그인의 GA4 연동은 `.mcp.json` 파일로 설정합니다.
+#### MCP 서버 설정
 
 ```bash
-# 템플릿에서 복사
 cp .mcp.json.example .mcp.json
 ```
 
@@ -50,10 +48,41 @@ cp .mcp.json.example .mcp.json
 ```
 
 설정 후 Claude Code를 재시작하면 바로 사용 가능합니다.
-설정 상태를 확인하려면:
 
 ```
 /smart-briefing:setup
+```
+
+### OpenClaw에서 설치
+
+> 상세 가이드: [docs/openclaw-setup.md](docs/openclaw-setup.md)
+
+1. `~/.openclaw/openclaw.json`에 스킬과 MCP 서버를 함께 설정합니다 (`openclaw.json.example` 참고):
+
+```json
+{
+  "skills": {
+    "load": {
+      "extraDirs": ["/path/to/smart-daily-briefing/skills"]
+    }
+  },
+  "mcpServers": {
+    "ga4-analytics": {
+      "command": "pipx",
+      "args": ["run", "google-analytics-mcp"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/path/to/service-account.json",
+        "GA4_PROPERTY_ID": "your-property-id"
+      }
+    }
+  }
+}
+```
+
+2. OpenClaw 재시작 후 테스트:
+
+```
+이번 주 세션 수 보여줘
 ```
 
 ---
@@ -71,7 +100,9 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 "어제 캠페인 성과 요약해줘"
 ```
 
-### 커맨드
+이 기능은 Claude Code와 OpenClaw 모두에서 동일하게 동작합니다.
+
+### 커맨드 (Claude Code 전용)
 
 | 커맨드 | 설명 |
 |--------|------|
@@ -81,6 +112,11 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 | `/smart-briefing:reports` | 저장된 리포트 목록 조회 |
 | `/smart-briefing:schedule` | 리포트 스케줄 조회/설정/실행 |
 
+OpenClaw에서는 커맨드 대신 자연어로 동일한 기능을 사용합니다:
+- "브리핑 생성해줘" → 일일 브리핑 생성
+- "브리핑 설정 보여줘" → 개인화 설정 조회
+- "리포트 목록 보여줘" → 저장된 리포트 확인
+
 ### 리포트 저장 및 스케줄
 
 데이터 조회 후 자연어로 리포트를 관리할 수 있습니다:
@@ -88,12 +124,11 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 ```
 "이 분석을 리포트로 저장해줘"
 "매일 아침 9시에 받고 싶어"
-"/smart-briefing:schedule run 모바일분석"
 ```
 
 ### 자동 브리핑 스케줄
 
-매일 정해진 시간에 자동으로 브리핑을 생성할 수 있습니다 (macOS):
+#### Claude Code (macOS launchd)
 
 ```
 /smart-briefing:schedule install 09:00   # 매일 09:00에 자동 브리핑
@@ -101,8 +136,21 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 /smart-briefing:schedule uninstall       # 해제
 ```
 
-macOS launchd를 사용하며, 브리핑 결과는 `briefings/` 디렉토리에 저장됩니다.
-Cowork 환경에서는 `/create-shortcut`으로 대체할 수 있습니다.
+#### OpenClaw (내장 cron)
+
+```bash
+# 매일 아침 9시 자동 브리핑
+openclaw cron add --name "GA4-daily-briefing" \
+  --cron "0 9 * * *" --tz "Asia/Seoul" \
+  --session isolated \
+  --message "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘. config.json 설정에 따라 활성 섹션의 데이터를 수집하고 분석해."
+
+# 스케줄 확인/해제
+openclaw cron list
+openclaw cron remove "GA4-daily-briefing"
+```
+
+OpenClaw cron은 크로스 플랫폼(macOS/Linux/Windows)이며 자동 재시도(exponential backoff)를 지원합니다.
 
 ### Slack 알림
 
@@ -139,7 +187,6 @@ Slack Incoming Webhook 생성:
 "캠페인 성과 중심으로 바꿔줘"
 "이벤트 섹션 추가해줘"
 "이상 탐지 임계값 30%로 높여줘"
-"/smart-briefing:customize preset behavior"
 ```
 
 ---
@@ -149,32 +196,53 @@ Slack Incoming Webhook 생성:
 ```
 smart-daily-briefing/
 ├── .claude-plugin/
-│   ├── plugin.json            # 플러그인 매니페스트
+│   ├── plugin.json            # 플러그인 매니페스트 (Claude Code)
 │   └── marketplace.json       # 마켓플레이스 배포 설정
-├── .claude/agents/            # 서브에이전트 정의
+├── .claude/agents/            # 서브에이전트 정의 (Claude Code)
 ├── skills/
 │   ├── ga-analyst/
-│   │   └── SKILL.md           # GA 데이터 자동 분석 (자동 트리거)
+│   │   └── SKILL.md           # GA 데이터 자동 분석
 │   ├── report-manager/
-│   │   └── SKILL.md           # 리포트 관리 (자동 트리거)
-│   └── briefing-customizer/
-│       └── SKILL.md           # 브리핑 개인화 설정 (자동 트리거)
-├── commands/
-│   ├── setup.md               # /smart-briefing:setup
-│   ├── briefing.md            # /smart-briefing:briefing
-│   ├── customize.md           # /smart-briefing:customize
-│   ├── reports.md             # /smart-briefing:reports
-│   └── schedule.md            # /smart-briefing:schedule
+│   │   └── SKILL.md           # 리포트 관리 + OpenClaw 브리핑
+│   ├── briefing-customizer/
+│   │   └── SKILL.md           # 브리핑 개인화 설정
+│   └── schedule-helper/
+│       └── SKILL.md           # OpenClaw cron 스케줄 관리
+├── commands/                  # 슬래시 커맨드 (Claude Code 전용)
+│   ├── setup.md
+│   ├── briefing.md
+│   ├── customize.md
+│   ├── reports.md
+│   └── schedule.md
 ├── scripts/
 │   ├── generate-charts.py     # 차트 이미지 생성 (matplotlib/SVG)
 │   ├── manage-schedule.sh     # 자동 브리핑 스케줄 관리 (launchd)
 │   └── send-slack.sh          # Slack 웹훅 알림 전송
+├── docs/
+│   └── openclaw-setup.md      # OpenClaw 설치/설정 가이드
 ├── config.json.example        # 브리핑 개인화 설정 템플릿
-├── .mcp.json.example          # MCP 서버 설정 템플릿
+├── .mcp.json.example          # MCP 서버 설정 템플릿 (Claude Code)
+├── openclaw.json.example      # MCP 서버 설정 템플릿 (OpenClaw)
 ├── CLAUDE.md                  # 자동 로드 컨텍스트
 ├── reports/                   # 저장된 리포트 (.json)
 └── briefings/                 # 생성된 브리핑 (.md, charts/)
 ```
+
+---
+
+## 플랫폼별 기능 비교
+
+| 기능 | Claude Code | OpenClaw |
+|------|-------------|----------|
+| 자연어 GA4 조회 | O | O |
+| 일일 브리핑 생성 | O (슬래시 명령) | O (자연어) |
+| 브리핑 개인화 | O | O |
+| 리포트 저장/실행 | O | O |
+| 차트 이미지 생성 | O | O (Python 필요) |
+| 자동 스케줄링 | macOS launchd | OpenClaw cron (크로스 플랫폼) |
+| Slack 알림 | O (웹훅) | O (웹훅 또는 네이티브 채널) |
+| 멀티채널 알림 | - | Telegram, Discord 등 (향후) |
+| 슬래시 커맨드 | O | - |
 
 ---
 
@@ -209,21 +277,24 @@ smart-daily-briefing/
 1. Google Analytics > **관리** > **속성 설정 > 속성 세부정보**
 2. **속성 ID** (숫자) 복사
 
-### Step 5: .mcp.json 설정
+### Step 5: 플랫폼별 설정
 
+**Claude Code:**
 ```bash
 cp .mcp.json.example .mcp.json
+# GOOGLE_APPLICATION_CREDENTIALS와 GA4_PROPERTY_ID 수정
 ```
 
-`.mcp.json`의 두 값을 수정하세요:
-- `GOOGLE_APPLICATION_CREDENTIALS`: 다운로드한 서비스 계정 JSON 파일의 **절대 경로**
-- `GA4_PROPERTY_ID`: 복사한 속성 ID (숫자)
+**OpenClaw:**
+```bash
+# openclaw.json에 mcpServers 섹션 추가 (openclaw.json.example 참고)
+```
 
 ---
 
 ## 차트 이미지 생성 (선택)
 
-브리핑에 차트 이미지를 포함하려면 Python 3.6+가 필요합니다.
+브리핑에 차트 이미지를 포함하려면 Python 3.9+가 필요합니다.
 
 ```bash
 # matplotlib 설치 시 → PNG 차트 (고품질)
@@ -238,6 +309,8 @@ pip install matplotlib
 
 ## 마켓플레이스 배포
 
+### Claude Code
+
 GitHub에 push하면 다른 사용자가 설치할 수 있습니다:
 
 ```bash
@@ -246,8 +319,6 @@ claude plugin install smart-briefing@smart-daily-briefing
 ```
 
 ### 플러그인 업데이트
-
-새 버전이 릴리즈되면 아래 명령으로 업데이트하세요:
 
 ```bash
 claude plugin marketplace update smart-daily-briefing

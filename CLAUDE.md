@@ -1,6 +1,7 @@
 # Smart Daily Briefing
 
-GA4 데이터를 대화형으로 분석하는 Claude Code 플러그인입니다.
+GA4 데이터를 대화형으로 분석하는 AI 에이전트 플러그인입니다.
+Claude Code와 OpenClaw 두 플랫폼에서 모두 사용할 수 있습니다.
 
 ## 플러그인 상태 확인
 
@@ -15,13 +16,19 @@ GA4 MCP 서버가 연결되지 않았습니다.
 .mcp.json 파일이 있는지 확인해주세요:
 - 없으면: cp .mcp.json.example .mcp.json 후 값을 입력하세요.
 - 있으면: `/smart-briefing:setup` 으로 설정 상태를 점검하세요.
+
+OpenClaw 사용자는 docs/openclaw-setup.md를 참고하세요.
 ```
 
 ## 사용 가능한 기능
 
-- 자연어 GA4 데이터 조회 및 분석 (ga-analyst 스킬)
-- 분석 결과 리포트 저장 및 스케줄 관리 (report-manager 스킬)
-- 브리핑 개인화 설정 (briefing-customizer 스킬)
+### 스킬 (자동 트리거)
+- 자연어 GA4 데이터 조회 및 분석 (ga-analyst)
+- 분석 결과 리포트 저장 및 스케줄 관리 (report-manager)
+- 브리핑 개인화 설정 (briefing-customizer)
+- OpenClaw 스케줄 관리 (schedule-helper)
+
+### 커맨드 (Claude Code 전용)
 - `/smart-briefing:briefing` - 일일 종합 브리핑 생성
 - `/smart-briefing:customize` - 브리핑 설정 조회/변경
 - `/smart-briefing:reports` - 저장된 리포트 목록

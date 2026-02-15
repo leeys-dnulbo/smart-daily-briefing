@@ -2,7 +2,7 @@
 
 ## 전체 구조 개요
 
-Smart Daily Briefing은 **Claude Code 플러그인**으로, 사용자의 GA4 데이터를 대화형으로 분석합니다.
+Smart Daily Briefing은 **Claude Code 및 OpenClaw**에서 동작하는 GA4 데이터 분석 에이전트입니다.
 플러그인 내부에는 크게 3가지 계층의 AI 구성요소가 존재합니다.
 
 ```
@@ -47,8 +47,9 @@ Smart Daily Briefing은 **Claude Code 플러그인**으로, 사용자의 GA4 데
 | 스킬 | 파일 | 트리거 예시 | 역할 |
 |------|------|-----------|------|
 | **ga-analyst** | `skills/ga-analyst/SKILL.md` | "이번 주 세션 수 보여줘" | GA4 데이터 조회 및 분석 |
-| **report-manager** | `skills/report-manager/SKILL.md` | "리포트로 저장해줘" | 리포트 저장/스케줄 관리 |
+| **report-manager** | `skills/report-manager/SKILL.md` | "리포트로 저장해줘" | 리포트 저장/스케줄 관리 + OpenClaw 브리핑 |
 | **briefing-customizer** | `skills/briefing-customizer/SKILL.md` | "행동패턴 위주로 브리핑해줘" | 브리핑 개인화 설정 |
+| **schedule-helper** | `skills/schedule-helper/SKILL.md` | "매일 브리핑 보내줘" | OpenClaw cron 스케줄 관리 |
 
 ```
 사용자: "모바일 이탈률이 어떻게 돼?"
@@ -291,13 +292,15 @@ smart-daily-briefing/
 │   ├── plugin.json
 │   └── marketplace.json
 │
-├── skills/                        ← 자동 트리거 스킬
+├── skills/                        ← 자동 트리거 스킬 (Claude Code + OpenClaw 공용)
 │   ├── ga-analyst/
 │   │   └── SKILL.md
 │   ├── report-manager/
 │   │   └── SKILL.md
-│   └── briefing-customizer/
-│       └── SKILL.md
+│   ├── briefing-customizer/
+│   │   └── SKILL.md
+│   └── schedule-helper/
+│       └── SKILL.md              ← OpenClaw cron 스케줄 관리
 │
 ├── commands/                      ← 슬래시 커맨드
 │   ├── setup.md
@@ -307,13 +310,19 @@ smart-daily-briefing/
 │   └── schedule.md
 │
 ├── scripts/
-│   └── generate-charts.py         ← 차트 이미지 생성 (matplotlib/SVG)
+│   ├── generate-charts.py         ← 차트 이미지 생성 (matplotlib/SVG)
+│   ├── manage-schedule.sh         ← 스케줄 관리 (macOS launchd)
+│   └── send-slack.sh              ← Slack 알림 전송
+│
+├── docs/
+│   └── openclaw-setup.md          ← OpenClaw 설치/설정 가이드
 │
 ├── reports/                       ← 저장된 리포트 (JSON)
 ├── briefings/                     ← 생성된 브리핑 (MD + charts/)
 │
-├── .mcp.json                      ← MCP 서버 설정 (gitignored)
-├── .mcp.json.example              ← MCP 설정 템플릿
+├── .mcp.json                      ← MCP 서버 설정 (Claude Code, gitignored)
+├── .mcp.json.example              ← MCP 설정 템플릿 (Claude Code)
+├── openclaw.json.example          ← MCP 설정 템플릿 (OpenClaw)
 ├── config.json.example            ← 브리핑 개인화 설정 템플릿
 ├── CLAUDE.md                      ← 플러그인 컨텍스트
 ├── README.md                      ← 사용 가이드

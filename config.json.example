@@ -82,7 +82,7 @@
   "notifications": {
     "slack": {
       "webhook_url": "",
-      "enabled": true
+      "enabled": false
     }
   }
 }

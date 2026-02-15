@@ -1,6 +1,7 @@
 ---
 name: ga-analyst
 description: GA4 데이터 분석 전문가. 사용자가 트래픽, 전환, 페이지 성과, 디바이스, 이벤트 등 GA 관련 질문을 하면 자동으로 활성화됩니다. 예시: "이번 주 세션 수", "이탈률 높은 페이지", "모바일 성과", "트래픽 소스 비교"
+metadata: {"openclaw":{"emoji":"📊","requires":{"bins":["pipx"]}}}
 ---
 
 # GA4 데이터 분석 에이전트
@@ -14,7 +15,8 @@ description: GA4 데이터 분석 전문가. 사용자가 트래픽, 전환, 페
 
 ```
 GA4 MCP 서버가 연결되지 않았습니다.
-`/smart-briefing:setup` 으로 초기 설정을 진행해주세요.
+- Claude Code: `/smart-briefing:setup` 으로 초기 설정을 진행해주세요.
+- OpenClaw: docs/openclaw-setup.md를 참고하여 설정해주세요.
 ```
 
 ## 동작 방식

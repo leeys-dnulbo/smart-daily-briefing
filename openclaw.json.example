@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "ga4-analytics": {
+      "command": "pipx",
+      "args": ["run", "google-analytics-mcp"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/path/to/your-service-account.json",
+        "GA4_PROPERTY_ID": "your-property-id"
+      }
+    }
+  },
+  "skills": {
+    "load": {
+      "extraDirs": ["/path/to/smart-daily-briefing/skills"]
+    }
+  }
+}

@@ -7,7 +7,15 @@ argument-hint: [list | 리포트이름 | run 리포트이름 | install [HH:MM] |
 
 $ARGUMENTS
 
-## 동작
+## 환경 감지
+
+먼저 실행 환경을 감지하세요:
+
+1. **OpenClaw 환경** (이 커맨드는 Claude Code 전용이므로 일반적으로 해당 없음. 만약 OpenClaw에서 스케줄 요청이 들어오면 `schedule-helper` 스킬이 처리합니다.)
+2. **Claude Code (macOS)**: `uname` 결과가 `Darwin`이면 아래 launchd 기반 방식으로 동작합니다.
+3. **그 외 (Linux 등)**: `uname` 결과가 `Darwin`이 아니면 수동 실행을 안내합니다.
+
+## 동작 (Claude Code / macOS)
 
 인수에 따라 아래와 같이 동작하세요:
 

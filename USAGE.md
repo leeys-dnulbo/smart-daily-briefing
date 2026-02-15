@@ -266,22 +266,23 @@ pip install weasyprint markdown
 
 ### 자동 PDF 생성
 
-브리핑 생성 시 자동으로 PDF도 만들려면 `config.json`에 설정합니다:
+브리핑 생성 시 PDF도 자동으로 함께 생성됩니다 (기본값).
+비활성화하려면 `config.json`에서 설정합니다:
 
 ```json
 {
   "export": {
-    "auto_pdf": true
+    "auto_pdf": false
   }
 }
 ```
-
-설정 후 `/smart-briefing:briefing` 또는 "브리핑 생성해줘"로 브리핑을 만들면 `.md`와 `.pdf`가 함께 저장됩니다.
 
 ### 출력 파일
 
 - 마크다운: `briefings/YYYY-MM-DD.md`
 - PDF: `briefings/YYYY-MM-DD.pdf`
+
+파일명은 항상 `YYYY-MM-DD` 형식입니다.
 
 ---
 

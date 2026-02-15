@@ -78,8 +78,16 @@ Claude Code와 OpenClaw 두 플랫폼에서 모두 사용 가능.
 - [x] `scripts/generate-pdf.py` - 마크다운 → HTML → PDF 변환 (weasyprint)
 - [x] `commands/export.md` - `/smart-briefing:export` 커맨드
 - [x] `report-manager` - "PDF로 만들어줘" 자연어 트리거 지원
-- [x] `briefing.md` - auto_pdf 옵션 (config.json `export.auto_pdf`)
+- [x] `briefing.md` - auto_pdf 기본 활성화 (config.json `export.auto_pdf`)
 - [x] 차트 이미지 포함, 한국어 폰트 지원, A4 페이지 설정
+- [x] PDF 파일명 `YYYY-MM-DD.pdf` 형식 강제
+
+### 스크립트 인프라 (완료)
+- [x] `hooks/inject-plugin-root.sh` - SessionStart 훅으로 `$SMART_BRIEFING_ROOT` 환경변수 주입
+- [x] `hooks/validate-chart-code.py` - PreToolUse 훅으로 matplotlib/weasyprint 직접 사용 차단
+- [x] `fonts/NanumGothic-Regular.ttf` - 컨테이너 환경용 번들 한국어 폰트
+- [x] CFF-in-TTC 폰트 문제 해결 (AppleGothic.ttf 우선, FontProperties 직접 적용)
+- [x] homebrew Python 자동 전환 (macOS)
 
 ### 추가 기능
 - [ ] 브리핑 히스토리 비교 (어제 vs 오늘 변화 추적)

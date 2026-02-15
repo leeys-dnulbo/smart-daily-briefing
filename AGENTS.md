@@ -317,6 +317,15 @@ smart-daily-briefing/
 │   ├── manage-schedule.sh         ← 스케줄 관리 (macOS launchd)
 │   └── send-slack.sh              ← Slack 알림 전송
 │
+├── hooks/
+│   ├── hooks.json                 ← 훅 설정 (SessionStart, PreToolUse)
+│   ├── inject-plugin-root.sh      ← $SMART_BRIEFING_ROOT 환경변수 주입
+│   └── validate-chart-code.py     ← matplotlib/weasyprint 직접 사용 차단
+│
+├── fonts/
+│   ├── NanumGothic-Regular.ttf    ← 번들 한국어 폰트 (컨테이너 환경용)
+│   └── OFL.txt                    ← SIL Open Font License
+│
 ├── docs/
 │   └── openclaw-setup.md          ← OpenClaw 설치/설정 가이드
 │

@@ -129,6 +129,8 @@ OpenClaw에서는 커맨드 대신 자연어로 동일한 기능을 사용합니
 "이 브리핑 PDF로 만들어줘"            # 자연어
 ```
 
+브리핑 생성 시 PDF도 자동으로 함께 생성됩니다 (기본값). `config.json`에서 `export.auto_pdf`를 `false`로 설정하면 비활성화할 수 있습니다.
+
 사전 요구사항: `pip install weasyprint markdown`
 
 ### 리포트 저장 및 스케줄
@@ -231,9 +233,16 @@ smart-daily-briefing/
 │   └── export.md
 ├── scripts/
 │   ├── generate-charts.py     # 차트 이미지 생성 (matplotlib/SVG)
-│   ├── generate-pdf.py       # 브리핑 PDF 내보내기 (weasyprint)
+│   ├── generate-pdf.py        # 브리핑 PDF 내보내기 (weasyprint)
 │   ├── manage-schedule.sh     # 자동 브리핑 스케줄 관리 (launchd)
 │   └── send-slack.sh          # Slack 웹훅 알림 전송
+├── hooks/
+│   ├── hooks.json             # 훅 설정 (SessionStart, PreToolUse)
+│   ├── inject-plugin-root.sh  # $SMART_BRIEFING_ROOT 환경변수 주입
+│   └── validate-chart-code.py # matplotlib/weasyprint 직접 사용 차단
+├── fonts/
+│   ├── NanumGothic-Regular.ttf # 번들 한국어 폰트 (컨테이너 환경용)
+│   └── OFL.txt                # SIL Open Font License
 ├── docs/
 │   └── openclaw-setup.md      # OpenClaw 설치/설정 가이드
 ├── config.json.example        # 브리핑 개인화 설정 템플릿
@@ -241,7 +250,7 @@ smart-daily-briefing/
 ├── openclaw.json.example      # MCP 서버 설정 템플릿 (OpenClaw)
 ├── CLAUDE.md                  # 자동 로드 컨텍스트
 ├── reports/                   # 저장된 리포트 (.json)
-└── briefings/                 # 생성된 브리핑 (.md, charts/)
+└── briefings/                 # 생성된 브리핑 (.md, .pdf, charts/)
 ```
 
 ---
@@ -321,6 +330,8 @@ pip install matplotlib
 ```
 
 브리핑 생성 시 자동으로 차트 스크립트가 실행됩니다. Python이 없거나 스크립트 실행이 실패하면 Unicode 텍스트 차트로 대체됩니다.
+
+한국어 폰트는 플러그인에 번들된 NanumGothic을 우선 사용하므로 컨테이너 환경에서도 별도 폰트 설치 없이 동작합니다.
 
 ---
 

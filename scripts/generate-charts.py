@@ -23,16 +23,20 @@ import subprocess
 import sys
 
 # ---------- Python 자동 전환 ----------
-# matplotlib가 없는 Python으로 실행된 경우, matplotlib가 있는 Python을 찾아 재실행
-def _reexec_with_matplotlib():
-    """matplotlib가 있는 Python을 찾아 현재 스크립트를 다시 실행"""
-    candidates = [
-        '/opt/homebrew/bin/python3.13',
-        '/opt/homebrew/bin/python3.12',
-        '/opt/homebrew/bin/python3.11',
-        '/usr/local/bin/python3',
-        '/usr/bin/python3',
-    ]
+# 항상 homebrew Python을 우선 사용 (더 나은 폰트/라이브러리 지원)
+_HOMEBREW_PYTHONS = [
+    '/opt/homebrew/bin/python3.13',
+    '/opt/homebrew/bin/python3.12',
+    '/opt/homebrew/bin/python3.11',
+]
+_OTHER_PYTHONS = [
+    '/usr/local/bin/python3',
+    '/usr/bin/python3',
+]
+
+def _reexec_with_better_python():
+    """더 좋은 Python(homebrew 우선)으로 재실행"""
+    candidates = _HOMEBREW_PYTHONS + _OTHER_PYTHONS
     for py in candidates:
         if py == sys.executable or not os.path.exists(py):
             continue
@@ -47,11 +51,16 @@ def _reexec_with_matplotlib():
         except (OSError, subprocess.TimeoutExpired):
             continue
 
-try:
-    import matplotlib as _mpl_test
-    del _mpl_test
-except ImportError:
-    _reexec_with_matplotlib()
+# homebrew Python이 아니면 homebrew로 재실행 시도
+if '/opt/homebrew/' not in sys.executable:
+    _reexec_with_better_python()
+# homebrew인데 matplotlib이 없으면 다른 Python으로 재실행
+else:
+    try:
+        import matplotlib as _mpl_test
+        del _mpl_test
+    except ImportError:
+        _reexec_with_better_python()
 
 # ---------- matplotlib 감지 & 자동 설치 ----------
 def _auto_install(*packages):
@@ -74,6 +83,7 @@ try:
     import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
     import matplotlib.ticker as ticker
+    import matplotlib.text
     from matplotlib.patches import FancyBboxPatch
     HAS_MATPLOTLIB = True
 except ImportError:
@@ -85,6 +95,7 @@ except ImportError:
             import matplotlib.pyplot as plt
             import matplotlib.font_manager as fm
             import matplotlib.ticker as ticker
+            import matplotlib.text
             from matplotlib.patches import FancyBboxPatch
             HAS_MATPLOTLIB = True
         except ImportError:
@@ -381,18 +392,20 @@ class SvgChartGenerator:
 # ============================================================
 #  폰트 검색 경로 (플랫폼별)
 # ============================================================
+# AppleSDGothicNeo.ttc는 CFF-in-TTC 형식으로 matplotlib/weasyprint에서 문제를 일으킴
+# AppleGothic.ttf (정상 TrueType)를 최우선으로 사용
 FONT_PATHS = {
     'Darwin': [
-        '/System/Library/Fonts/AppleSDGothicNeo.ttc',
         '/System/Library/Fonts/Supplemental/AppleGothic.ttf',
         '/Library/Fonts/NanumGothic.otf',
         '/Library/Fonts/NanumGothic.ttf',
+        '/System/Library/Fonts/AppleSDGothicNeo.ttc',
     ],
     'Linux': [
-        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
-        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
         '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
         '/usr/share/fonts/nanum/NanumGothic.ttf',
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
     ],
 }
 
@@ -442,24 +455,14 @@ class MatplotlibChartGenerator:
         """폰트 파일을 직접 등록하여 환경에 무관하게 한국어 렌더링"""
         self._font_prop = None
 
-        # matplotlib 폰트 캐시 강제 재빌드
-        try:
-            cache_dir = matplotlib.get_cachedir()
-            if cache_dir:
-                import glob as _glob
-                for f in _glob.glob(os.path.join(cache_dir, 'fontlist-*.json')):
-                    os.remove(f)
-                    print(f"  Cleared font cache: {f}", file=sys.stderr)
-                fm._load_fontmanager(try_read_cache=False)
-        except Exception:
-            pass
-
         font_path = _find_korean_font()
         if font_path:
-            fm.fontManager.addfont(font_path)
+            try:
+                fm.fontManager.addfont(font_path)
+            except Exception:
+                pass
             self._font_prop = fm.FontProperties(fname=font_path)
             font_name = self._font_prop.get_name()
-            # 여러 rcParams에 동시 설정하여 확실하게 적용
             plt.rcParams['font.family'] = 'sans-serif'
             plt.rcParams['font.sans-serif'] = [font_name] + plt.rcParams.get('font.sans-serif', [])
             print(f"  Font: {font_name} ({font_path})", file=sys.stderr)
@@ -521,6 +524,13 @@ class MatplotlibChartGenerator:
                     xytext=(0.15, 1.02), textcoords='axes fraction',
                     arrowprops=dict(arrowstyle='-', color=self.ACCENT, lw=2.5))
 
+    def _apply_font_to_all(self, fig):
+        """figure 내 모든 Text 객체에 fontproperties를 강제 적용 (rcParams 불안정 대응)"""
+        if not self._font_prop:
+            return
+        for text_obj in fig.findobj(matplotlib.text.Text):
+            text_obj.set_fontproperties(self._font_prop)
+
     def generate_daily_trend(self, title, labels, sessions, users=None, *, output_path):
         """일별 트렌드: 바 + 라인 복합 차트"""
         fig, ax1 = plt.subplots(figsize=(10, 4.5))
@@ -529,7 +539,7 @@ class MatplotlibChartGenerator:
         x = range(len(labels))
         bar_width = 0.55
 
-        # 막대 차트 (약간의 둥근 느낌 + 그림자)
+        # 막대 차트
         ax1.bar(x, sessions, color=self.PALETTE[0], alpha=0.85,
                 width=bar_width, edgecolor='white', linewidth=0.5,
                 label='세션', zorder=3)
@@ -537,7 +547,7 @@ class MatplotlibChartGenerator:
         ax1.set_ylabel('세션', **self._fp(fontsize=10, color=self.PALETTE[0], fontweight='600'))
         ax1.tick_params(axis='y', labelcolor=self.PALETTE[0])
         ax1.set_xticks(x)
-        ax1.set_xticklabels(labels, rotation=0, ha='center', fontsize=9)
+        ax1.set_xticklabels(labels, **self._fp(rotation=0, ha='center', fontsize=9))
         ax1.yaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: format_number(int(v))))
 
         if users:
@@ -564,6 +574,7 @@ class MatplotlibChartGenerator:
                     text.set_fontproperties(self._font_prop)
 
         self._set_title(ax1, title)
+        self._apply_font_to_all(fig)
         fig.tight_layout()
         fig.savefig(output_path, facecolor='white')
         plt.close(fig)
@@ -610,6 +621,7 @@ class MatplotlibChartGenerator:
                     fontweight='500')
 
         self._set_title(ax, title)
+        self._apply_font_to_all(fig)
         fig.tight_layout()
         fig.savefig(output_path, facecolor='white')
         plt.close(fig)
@@ -652,6 +664,7 @@ class MatplotlibChartGenerator:
                 text.set_fontproperties(self._font_prop)
 
         self._set_title(ax, title)
+        self._apply_font_to_all(fig)
         fig.tight_layout()
         fig.savefig(output_path, facecolor='white')
         plt.close(fig)
@@ -685,7 +698,7 @@ class MatplotlibChartGenerator:
             sign = '+' if change >= 0 else ''
             text = f'{sign}{change:.1f}%'
             if is_anomaly:
-                text += '  ⚠'
+                text += '  [!]'
             offset = max_abs * 0.06 * (1 if change >= 0 else -1)
             ax.text(change + offset, i,
                     text, va='center', fontsize=10, fontweight='bold',
@@ -705,6 +718,7 @@ class MatplotlibChartGenerator:
         ax.xaxis.set_visible(False)
 
         self._set_title(ax, title)
+        self._apply_font_to_all(fig)
         fig.tight_layout()
         fig.savefig(output_path, facecolor='white')
         plt.close(fig)

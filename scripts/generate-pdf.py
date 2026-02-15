@@ -22,16 +22,20 @@ import subprocess
 import sys
 
 # ---------- Python 자동 전환 ----------
-# weasyprint가 없는 Python으로 실행된 경우, weasyprint가 있는 Python을 찾아 재실행
-def _reexec_with_weasyprint():
-    """weasyprint가 있는 Python을 찾아 현재 스크립트를 다시 실행"""
-    candidates = [
-        '/opt/homebrew/bin/python3.13',
-        '/opt/homebrew/bin/python3.12',
-        '/opt/homebrew/bin/python3.11',
-        '/usr/local/bin/python3',
-        '/usr/bin/python3',
-    ]
+# 항상 homebrew Python을 우선 사용 (시스템 Python은 libgobject 등 누락 가능)
+_HOMEBREW_PYTHONS = [
+    '/opt/homebrew/bin/python3.13',
+    '/opt/homebrew/bin/python3.12',
+    '/opt/homebrew/bin/python3.11',
+]
+_OTHER_PYTHONS = [
+    '/usr/local/bin/python3',
+    '/usr/bin/python3',
+]
+
+def _reexec_with_better_python():
+    """더 좋은 Python(homebrew 우선)으로 재실행"""
+    candidates = _HOMEBREW_PYTHONS + _OTHER_PYTHONS
     for py in candidates:
         if py == sys.executable or not os.path.exists(py):
             continue
@@ -46,11 +50,16 @@ def _reexec_with_weasyprint():
         except (OSError, subprocess.TimeoutExpired):
             continue
 
-try:
-    from weasyprint import HTML as _wp_test
-    del _wp_test
-except ImportError:
-    _reexec_with_weasyprint()
+# homebrew Python이 아니면 homebrew로 재실행 시도
+if '/opt/homebrew/' not in sys.executable:
+    _reexec_with_better_python()
+# homebrew인데 weasyprint이 없으면 다른 Python으로 재실행
+else:
+    try:
+        from weasyprint import HTML as _wp_test
+        del _wp_test
+    except ImportError:
+        _reexec_with_better_python()
 
 # ---------- 의존성 감지 & 자동 설치 ----------
 def _auto_install(*packages):
@@ -107,20 +116,20 @@ NEGATIVE_COLOR = '#EF4444'
 
 # ---------- 한국어 폰트 ----------
 
-# 플랫폼별 한국어 폰트 검색 경로 (우선순위 순)
+# AppleSDGothicNeo.ttc는 CFF-in-TTC 형식으로 weasyprint에서 CID keyed font 문제 유발
+# AppleGothic.ttf (정상 TrueType)를 최우선으로 사용
 FONT_SEARCH = {
     'Darwin': [
-        # macOS 시스템 폰트
-        '/System/Library/Fonts/AppleSDGothicNeo.ttc',
         '/System/Library/Fonts/Supplemental/AppleGothic.ttf',
         '/Library/Fonts/NanumGothic.otf',
         '/Library/Fonts/NanumGothic.ttf',
+        '/System/Library/Fonts/AppleSDGothicNeo.ttc',
     ],
     'Linux': [
-        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
-        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
         '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
         '/usr/share/fonts/nanum/NanumGothic.ttf',
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
     ],
 }
 

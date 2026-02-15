@@ -382,12 +382,28 @@ class MatplotlibChartGenerator:
 
     def _setup_font(self):
         """폰트 파일을 직접 등록하여 환경에 무관하게 한국어 렌더링"""
+        self._font_prop = None
+
+        # matplotlib 폰트 캐시 강제 재빌드
+        try:
+            cache_dir = matplotlib.get_cachedir()
+            if cache_dir:
+                import glob as _glob
+                for f in _glob.glob(os.path.join(cache_dir, 'fontlist-*.json')):
+                    os.remove(f)
+                    print(f"  Cleared font cache: {f}", file=sys.stderr)
+                fm._load_fontmanager(try_read_cache=False)
+        except Exception:
+            pass
+
         font_path = _find_korean_font()
         if font_path:
             fm.fontManager.addfont(font_path)
-            prop = fm.FontProperties(fname=font_path)
-            font_name = prop.get_name()
-            plt.rcParams['font.family'] = font_name
+            self._font_prop = fm.FontProperties(fname=font_path)
+            font_name = self._font_prop.get_name()
+            # 여러 rcParams에 동시 설정하여 확실하게 적용
+            plt.rcParams['font.family'] = 'sans-serif'
+            plt.rcParams['font.sans-serif'] = [font_name] + plt.rcParams.get('font.sans-serif', [])
             print(f"  Font: {font_name} ({font_path})", file=sys.stderr)
         else:
             system = platform.system()
@@ -418,6 +434,12 @@ class MatplotlibChartGenerator:
             'savefig.pad_inches': 0.3,
         })
 
+    def _fp(self, **kwargs):
+        """fontproperties가 있으면 kwargs에 추가하는 헬퍼"""
+        if self._font_prop:
+            kwargs['fontproperties'] = self._font_prop
+        return kwargs
+
     def _clean_axes(self, ax, grid_axis='y'):
         """공통: 상단/우측 spine 제거, 미니멀 그리드"""
         ax.spines['top'].set_visible(False)
@@ -431,8 +453,11 @@ class MatplotlibChartGenerator:
 
     def _set_title(self, ax, title):
         """좌측 정렬 + 하단 액센트 라인 타이틀"""
-        ax.set_title(title, fontsize=13, fontweight='bold', color=TEXT_COLOR,
-                     loc='left', pad=16)
+        kwargs = dict(fontsize=13, fontweight='bold', color=TEXT_COLOR,
+                      loc='left', pad=16)
+        if self._font_prop:
+            kwargs['fontproperties'] = self._font_prop
+        ax.set_title(title, **kwargs)
         # 타이틀 아래 얇은 액센트 라인
         ax.annotate('', xy=(0, 1.02), xycoords='axes fraction',
                     xytext=(0.15, 1.02), textcoords='axes fraction',
@@ -451,7 +476,7 @@ class MatplotlibChartGenerator:
                 width=bar_width, edgecolor='white', linewidth=0.5,
                 label='세션', zorder=3)
 
-        ax1.set_ylabel('세션', fontsize=10, color=self.PALETTE[0], fontweight='600')
+        ax1.set_ylabel('세션', **self._fp(fontsize=10, color=self.PALETTE[0], fontweight='600'))
         ax1.tick_params(axis='y', labelcolor=self.PALETTE[0])
         ax1.set_xticks(x)
         ax1.set_xticklabels(labels, rotation=0, ha='center', fontsize=9)
@@ -466,16 +491,19 @@ class MatplotlibChartGenerator:
                      linewidth=2.5, label='사용자', zorder=4,
                      markerfacecolor='white', markeredgewidth=2,
                      markeredgecolor=self.PALETTE[1])
-            ax2.set_ylabel('사용자', fontsize=10, color=self.PALETTE[1], fontweight='600')
+            ax2.set_ylabel('사용자', **self._fp(fontsize=10, color=self.PALETTE[1], fontweight='600'))
             ax2.tick_params(axis='y', labelcolor=self.PALETTE[1])
             ax2.yaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: format_number(int(v))))
 
             # 통합 범례
             lines1, labels1 = ax1.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
-            ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left',
+            legend = ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left',
                        frameon=True, framealpha=0.9, edgecolor=self.AXIS_COLOR,
                        fontsize=9, borderpad=0.8)
+            if self._font_prop:
+                for text in legend.get_texts():
+                    text.set_fontproperties(self._font_prop)
 
         self._set_title(ax1, title)
         fig.tight_layout()
@@ -505,7 +533,10 @@ class MatplotlibChartGenerator:
                        edgecolor='white', linewidth=0.3, zorder=2)
 
         ax.set_yticks(range(n))
-        ax.set_yticklabels(display_labels, fontsize=10)
+        if self._font_prop:
+            ax.set_yticklabels(display_labels, fontsize=10, fontproperties=self._font_prop)
+        else:
+            ax.set_yticklabels(display_labels, fontsize=10)
         ax.invert_yaxis()
         ax.set_xlim(0, max_val * 1.25)
         ax.xaxis.set_visible(False)
@@ -544,9 +575,9 @@ class MatplotlibChartGenerator:
 
         # 중앙 총합 표시
         ax.text(0, 0.06, format_number(total), ha='center', va='center',
-                fontsize=20, fontweight='bold', color=TEXT_COLOR)
+                **self._fp(fontsize=20, fontweight='bold', color=TEXT_COLOR))
         ax.text(0, -0.12, '총합', ha='center', va='center',
-                fontsize=9, color=self.SUBTLE_TEXT)
+                **self._fp(fontsize=9, color=self.SUBTLE_TEXT))
 
         # 깔끔한 범례 (박스 스타일)
         legend = ax.legend(
@@ -558,6 +589,9 @@ class MatplotlibChartGenerator:
             handlelength=1.2, handleheight=0.8,
         )
         legend.get_frame().set_linewidth(0.6)
+        if self._font_prop:
+            for text in legend.get_texts():
+                text.set_fontproperties(self._font_prop)
 
         self._set_title(ax, title)
         fig.tight_layout()
@@ -604,7 +638,10 @@ class MatplotlibChartGenerator:
         ax.axvline(x=0, color='#9AA0A6', linewidth=1.2, zorder=3)
 
         ax.set_yticks(range(n))
-        ax.set_yticklabels(labels, fontsize=10)
+        if self._font_prop:
+            ax.set_yticklabels(labels, fontsize=10, fontproperties=self._font_prop)
+        else:
+            ax.set_yticklabels(labels, fontsize=10)
         ax.invert_yaxis()
         ax.set_xlim(-max_abs * 1.5, max_abs * 1.5)
         ax.xaxis.set_visible(False)

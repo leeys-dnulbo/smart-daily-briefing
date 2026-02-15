@@ -22,6 +22,37 @@ import platform
 import subprocess
 import sys
 
+# ---------- Python 자동 전환 ----------
+# matplotlib가 없는 Python으로 실행된 경우, matplotlib가 있는 Python을 찾아 재실행
+def _reexec_with_matplotlib():
+    """matplotlib가 있는 Python을 찾아 현재 스크립트를 다시 실행"""
+    candidates = [
+        '/opt/homebrew/bin/python3.13',
+        '/opt/homebrew/bin/python3.12',
+        '/opt/homebrew/bin/python3.11',
+        '/usr/local/bin/python3',
+        '/usr/bin/python3',
+    ]
+    for py in candidates:
+        if py == sys.executable or not os.path.exists(py):
+            continue
+        try:
+            result = subprocess.run(
+                [py, '-c', 'import matplotlib'],
+                capture_output=True, timeout=10
+            )
+            if result.returncode == 0:
+                print(f"  Re-exec with: {py}", file=sys.stderr)
+                os.execv(py, [py] + sys.argv)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+
+try:
+    import matplotlib as _mpl_test
+    del _mpl_test
+except ImportError:
+    _reexec_with_matplotlib()
+
 # ---------- matplotlib 감지 & 자동 설치 ----------
 def _auto_install(*packages):
     """미설치 패키지를 자동으로 pip install 시도"""

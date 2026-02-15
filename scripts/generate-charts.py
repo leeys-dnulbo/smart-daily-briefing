@@ -22,7 +22,21 @@ import platform
 import subprocess
 import sys
 
-# ---------- matplotlib 감지 ----------
+# ---------- matplotlib 감지 & 자동 설치 ----------
+def _auto_install(*packages):
+    """미설치 패키지를 자동으로 pip install 시도"""
+    for attempt in range(2):
+        try:
+            cmd = [sys.executable, '-m', 'pip', 'install', '--quiet']
+            if attempt == 1:
+                cmd.append('--break-system-packages')
+            cmd.extend(packages)
+            subprocess.check_call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            continue
+    return False
+
 try:
     import matplotlib
     matplotlib.use('Agg')
@@ -32,7 +46,20 @@ try:
     from matplotlib.patches import FancyBboxPatch
     HAS_MATPLOTLIB = True
 except ImportError:
-    HAS_MATPLOTLIB = False
+    print("matplotlib 미설치 → 자동 설치 시도...", file=sys.stderr)
+    if _auto_install('matplotlib'):
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+            import matplotlib.font_manager as fm
+            import matplotlib.ticker as ticker
+            from matplotlib.patches import FancyBboxPatch
+            HAS_MATPLOTLIB = True
+        except ImportError:
+            HAS_MATPLOTLIB = False
+    else:
+        HAS_MATPLOTLIB = False
 
 # ---------- 상수 ----------
 COLORS = [

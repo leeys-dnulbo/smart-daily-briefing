@@ -21,18 +21,48 @@ import re
 import subprocess
 import sys
 
-# ---------- 의존성 감지 ----------
+# ---------- 의존성 감지 & 자동 설치 ----------
+def _auto_install(*packages):
+    """미설치 패키지를 자동으로 pip install 시도"""
+    for attempt in range(2):
+        try:
+            cmd = [sys.executable, '-m', 'pip', 'install', '--quiet']
+            if attempt == 1:
+                cmd.append('--break-system-packages')
+            cmd.extend(packages)
+            subprocess.check_call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            continue
+    return False
+
 try:
     from weasyprint import HTML
     HAS_WEASYPRINT = True
 except ImportError:
-    HAS_WEASYPRINT = False
+    print("weasyprint 미설치 → 자동 설치 시도...", file=sys.stderr)
+    if _auto_install('weasyprint'):
+        try:
+            from weasyprint import HTML
+            HAS_WEASYPRINT = True
+        except ImportError:
+            HAS_WEASYPRINT = False
+    else:
+        HAS_WEASYPRINT = False
 
 try:
     import markdown
     HAS_MARKDOWN = True
 except ImportError:
-    HAS_MARKDOWN = False
+    print("markdown 미설치 → 자동 설치 시도...", file=sys.stderr)
+    if _auto_install('markdown'):
+        try:
+            import markdown
+            HAS_MARKDOWN = True
+        except ImportError:
+            HAS_MARKDOWN = False
+    else:
+        HAS_MARKDOWN = False
 
 # ---------- PDF 스타일 상수 (generate-charts.py Slate Blue 팔레트 기반) ----------
 PRIMARY_COLOR = '#3B82F6'

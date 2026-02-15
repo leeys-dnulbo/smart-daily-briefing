@@ -4,19 +4,12 @@ description: AI 일일 브리핑을 생성합니다. config.json 설정에 따�
 
 # 일일 브리핑 생성
 
-> ⚠️ **MANDATORY RULE — DO NOT SKIP OR IGNORE** ⚠️
->
-> 차트 이미지를 생성할 때 **절대로 직접 Python/matplotlib 코드를 작성하지 마세요.**
-> **반드시** 아래 명령으로 플러그인 내장 스크립트를 실행하세요:
->
+> **차트/PDF 생성 규칙**: 반드시 플러그인 내장 스크립트(`generate-charts.py`, `generate-pdf.py`)를 사용하세요.
+> 직접 matplotlib/weasyprint 코드를 작성하면 **PreToolUse 훅에 의해 자동 차단**됩니다.
+> 스크립트 찾기:
 > ```
 > CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)
-> python3 "$CHART_SCRIPT" --input briefings/charts/{날짜}/data.json --output-dir briefings/charts/{날짜}/ --format auto
 > ```
->
-> 이 규칙을 위반하면 **한글 폰트가 깨지고**, **디자인이 일관되지 않으며**, **사용자에게 품질 문제가 발생합니다.**
-> 스크립트에 한국어 폰트 자동 감지, Slate Blue 색상 팔레트, Python 자동 전환이 내장되어 있습니다.
-> **이 규칙은 어떤 상황에서도 예외 없이 적용됩니다. matplotlib 코드를 직접 작성하는 것은 금지입니다.**
 
 GA4 데이터를 종합적으로 수집하고 분석하여 일일 브리핑을 생성하세요.
 
@@ -148,31 +141,8 @@ $PYTHON "$CHART_SCRIPT" \
   --format auto
 ```
 
-> **스크립트를 찾을 수 없는 경우 (NOT FOUND)**: 직접 matplotlib 코드를 작성해도 되지만,
-> **반드시 아래 한국어 폰트 설정 코드를 포함하세요. 이 코드 없이는 한글이 깨집니다:**
->
-> ```python
-> import matplotlib; matplotlib.use('Agg')
-> import matplotlib.pyplot as plt
-> import matplotlib.font_manager as fm
-> import os, platform
->
-> # 한국어 폰트 설정 (CRITICAL - 이 블록을 빠뜨리면 한글이 깨집니다)
-> _font_paths = {
->     'Darwin': ['/System/Library/Fonts/AppleSDGothicNeo.ttc',
->                '/System/Library/Fonts/Supplemental/AppleGothic.ttf'],
->     'Linux':  ['/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
->                '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'],
-> }
-> for p in _font_paths.get(platform.system(), []):
->     if os.path.exists(p):
->         fm.fontManager.addfont(p)
->         plt.rcParams['font.family'] = fm.FontProperties(fname=p).get_name()
->         break
-> plt.rcParams['axes.unicode_minus'] = False
-> # Slate Blue 색상 팔레트
-> COLORS = ['#3B82F6', '#6366F1', '#8B5CF6', '#0EA5E9', '#14B8A6', '#F59E0B']
-> ```
+> **스크립트를 찾을 수 없는 경우**: 차트 생성을 건너뛰고 3단계로 진행하세요.
+> 직접 matplotlib 코드를 작성하면 PreToolUse 훅에 의해 차단됩니다.
 
 - matplotlib 설치 시 PNG, 미설치 시 SVG로 자동 생성됩니다.
 - 스크립트 실행이 실패하면 (Python 미설치 등) 차트 없이 3단계로 진행합니다.

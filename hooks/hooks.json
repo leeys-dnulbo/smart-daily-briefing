@@ -1,0 +1,29 @@
+{
+  "description": "차트/PDF 생성 시 내장 스크립트 사용 강제 (한글 폰트 깨짐 방지)",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/validate-chart-code.py",
+            "timeout": 15,
+            "statusMessage": "차트/PDF 코드 검증 중..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/validate-chart-code.py",
+            "timeout": 15,
+            "statusMessage": "차트/PDF 코드 검증 중..."
+          }
+        ]
+      }
+    ]
+  }
+}

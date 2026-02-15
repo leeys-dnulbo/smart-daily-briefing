@@ -36,14 +36,14 @@ except ImportError:
 
 # ---------- 상수 ----------
 COLORS = [
-    '#4285F4', '#34A853', '#FBBC05', '#EA4335', '#9AA0A6',
-    '#46BDC6', '#7BAAF7', '#57BB8A', '#FFD54F', '#E57373',
+    '#3B82F6', '#6366F1', '#8B5CF6', '#0EA5E9', '#14B8A6',
+    '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#64748B',
 ]
 BG_COLOR = '#FFFFFF'
-TEXT_COLOR = '#202124'
-GRID_COLOR = '#E8EAED'
-POSITIVE_COLOR = '#34A853'
-NEGATIVE_COLOR = '#EA4335'
+TEXT_COLOR = '#1E293B'
+GRID_COLOR = '#E2E8F0'
+POSITIVE_COLOR = '#10B981'
+NEGATIVE_COLOR = '#EF4444'
 
 METRIC_LABELS = {
     'sessions': '세션',
@@ -368,12 +368,12 @@ def _find_korean_font():
 # ============================================================
 class MatplotlibChartGenerator:
 
-    # 세련된 색상 팔레트 (Google Analytics 스타일)
-    PALETTE = ['#4285F4', '#34A853', '#FBBC05', '#EA4335', '#9334E6',
-               '#00ACC1', '#5C6BC0', '#43A047', '#FB8C00', '#E53935']
-    ACCENT = '#4285F4'
-    SUBTLE_TEXT = '#5F6368'
-    AXIS_COLOR = '#DADCE0'
+    # Slate Blue 팔레트 (차분한 블루-그레이 계열)
+    PALETTE = ['#3B82F6', '#6366F1', '#8B5CF6', '#0EA5E9', '#14B8A6',
+               '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#64748B']
+    ACCENT = '#3B82F6'
+    SUBTLE_TEXT = '#64748B'
+    AXIS_COLOR = '#E2E8F0'
     GRID_ALPHA = 0.25
 
     def __init__(self):

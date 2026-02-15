@@ -34,14 +34,14 @@ try:
 except ImportError:
     HAS_MARKDOWN = False
 
-# ---------- PDF 스타일 상수 (generate-charts.py 색상 팔레트 기반) ----------
-PRIMARY_COLOR = '#4285F4'
-TEXT_COLOR = '#202124'
-SECONDARY_TEXT = '#5F6368'
-BORDER_COLOR = '#E8EAED'
-BG_LIGHT = '#F8F9FA'
-POSITIVE_COLOR = '#34A853'
-NEGATIVE_COLOR = '#EA4335'
+# ---------- PDF 스타일 상수 (generate-charts.py Slate Blue 팔레트 기반) ----------
+PRIMARY_COLOR = '#3B82F6'
+TEXT_COLOR = '#1E293B'
+SECONDARY_TEXT = '#64748B'
+BORDER_COLOR = '#E2E8F0'
+BG_LIGHT = '#F8FAFC'
+POSITIVE_COLOR = '#10B981'
+NEGATIVE_COLOR = '#EF4444'
 
 
 # ---------- 한국어 폰트 ----------

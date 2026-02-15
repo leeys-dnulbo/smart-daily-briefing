@@ -113,10 +113,12 @@ config의 `briefing.sections` 배열에서 **`enabled: true`인 섹션만** 순�
 
 ### 2.5.2 차트 생성 스크립트 실행
 
-Bash 도구로 다음 명령을 실행하세요. **Python 경로는 brew Python을 우선 사용합니다** (시스템 Python은 한글 폰트/라이브러리 문제가 발생할 수 있음):
+**반드시 `scripts/generate-charts.py` 스크립트를 사용하세요. 직접 matplotlib 코드를 작성하지 마세요.** 스크립트에 한국어 폰트 자동 감지, 색상 팔레트, 전문적인 차트 디자인이 내장되어 있습니다.
+
+Bash 도구로 다음 명령을 실행하세요:
 
 ```bash
-PYTHON=$(command -v /opt/homebrew/bin/python3 || command -v python3) && \
+PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
 $PYTHON scripts/generate-charts.py \
   --input briefings/charts/{오늘날짜}/data.json \
   --output-dir briefings/charts/{오늘날짜}/ \
@@ -285,7 +287,7 @@ config.json에 `export.auto_pdf`가 `true`로 설정되어 있으면, 저장 완
 
 Bash 도구로 실행:
 ```bash
-PYTHON=$(command -v /opt/homebrew/bin/python3 || command -v python3) && \
+PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
 $PYTHON scripts/generate-pdf.py \
   --input briefings/{오늘날짜}.md \
   --output briefings/{오늘날짜}.pdf \

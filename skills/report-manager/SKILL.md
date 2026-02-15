@@ -131,7 +131,7 @@ GA4 MCP 서버가 연결되지 않았습니다.
 3. 차트 디렉토리(`briefings/charts/{날짜}/`)가 있으면 함께 전달합니다
 4. Bash 도구로 PDF 생성 스크립트를 실행합니다 (brew Python 우선):
    ```bash
-   PYTHON=$(command -v /opt/homebrew/bin/python3 || command -v python3) && \
+   PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
    $PYTHON scripts/generate-pdf.py \
      --input briefings/{날짜}.md \
      --output briefings/{날짜}.pdf \
@@ -166,7 +166,7 @@ OpenClaw 환경에서는 슬래시 명령 대신 자연어로 동작합니다.
 4. 수집된 데이터를 종합 분석하여 브리핑 작성
 5. `briefings/{오늘날짜}.md`에 저장
 
-> 차트 생성이 가능한 환경이면 차트 스크립트도 실행합니다 (brew Python 우선: `$(command -v /opt/homebrew/bin/python3 || command -v python3)`).
+> 차트 생성이 가능한 환경이면 차트 스크립트도 실행합니다 (brew Python 우선: `$(command -v /opt/homebrew/bin/python3.13 || command -v python3)`).
 
 ### OpenClaw 스케줄링 안내
 

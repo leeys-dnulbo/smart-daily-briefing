@@ -132,6 +132,7 @@ GA4 MCP 서버가 연결되지 않았습니다.
 사용자가 "PDF로 만들어줘", "PDF로 내보내줘", "이 브리핑 PDF로" 등을 요청하면:
 
 1. 가장 최근 또는 사용자가 지정한 날짜의 브리핑 파일(`briefings/{날짜}.md`)을 확인합니다
+   - **파일명 규칙**: PDF 출력은 반드시 `briefings/YYYY-MM-DD.pdf` 형식. 한국어나 부가 텍스트(`_GA_브리핑` 등)를 파일명에 포함하지 않습니다.
 2. 파일이 없으면 먼저 브리핑 생성을 안내합니다:
    - Claude Code: `/smart-briefing:briefing`
    - OpenClaw: "브리핑 생성해줘"

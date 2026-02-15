@@ -309,9 +309,10 @@ Unicode 블록 차트가 포함된 브리핑을 터미널에 그대로 표시합
 **차트 이미지가 생성되지 않은 경우:**
 - Unicode 블록 차트가 포함된 마크다운을 그대로 저장합니다.
 
-### PDF 자동 생성 (선택)
+### PDF 자동 생성
 
-config.json에 `export.auto_pdf`가 `true`로 설정되어 있으면, 저장 완료 후 자동으로 PDF도 생성합니다.
+브리핑 저장 후 항상 PDF도 함께 생성합니다. (config.json의 `export.auto_pdf`가 `false`이면 건너뜁니다.)
+**파일명 규칙**: 반드시 `briefings/YYYY-MM-DD.pdf` 형식. 한국어나 부가 텍스트를 파일명에 포함하지 않습니다.
 
 Bash 도구로 실행:
 ```bash
@@ -329,7 +330,7 @@ $PYTHON "$PDF_SCRIPT" \
 - 성공 시: "PDF도 함께 저장되었습니다: briefings/{날짜}.pdf"
 - 실패 시 (weasyprint 미설치 등): 무시하고 계속 진행합니다 (에러 로그만 표시)
 
-`export.auto_pdf`가 `false`이거나 `export` 설정이 없으면 이 단계를 건너뜁니다.
+`export.auto_pdf`가 명시적으로 `false`이면 이 단계를 건너뜁니다. 설정이 없거나 `true`이면 실행합니다.
 
 ### 저장 후 안내
 

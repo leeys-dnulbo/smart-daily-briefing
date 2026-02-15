@@ -80,7 +80,7 @@
     "max_actions": 4
   },
   "export": {
-    "auto_pdf": false
+    "auto_pdf": true
   },
   "notifications": {
     "slack": {

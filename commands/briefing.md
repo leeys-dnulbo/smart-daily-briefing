@@ -113,20 +113,52 @@ config의 `briefing.sections` 배열에서 **`enabled: true`인 섹션만** 순�
 
 ### 2.5.2 차트 생성 스크립트 실행
 
-> **CRITICAL**: 차트는 반드시 아래 명령으로 `scripts/generate-charts.py`를 실행하여 생성하세요.
-> **절대로 직접 matplotlib/Python 차트 코드를 작성하지 마세요.**
-> 스크립트에 한국어 폰트 자동 감지, Slate Blue 색상 팔레트, 전문 대시보드 디자인이 내장되어 있습니다.
-> 직접 코드를 작성하면 한글이 깨지고 디자인이 일관되지 않습니다.
-
-Bash 도구로 다음 명령을 **그대로** 실행하세요 (경로의 `{오늘날짜}`만 실제 날짜로 교체):
+먼저 스크립트 위치를 찾습니다. Bash 도구로 실행:
 
 ```bash
+CHART_SCRIPT=$(find ~/.claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null | head -1)
+[ -z "$CHART_SCRIPT" ] && CHART_SCRIPT="scripts/generate-charts.py"
+echo "Chart script: $CHART_SCRIPT"
+ls -la "$CHART_SCRIPT" 2>/dev/null || echo "NOT FOUND"
+```
+
+스크립트를 찾았으면 Bash 도구로 실행:
+
+```bash
+CHART_SCRIPT=$(find ~/.claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null | head -1)
+[ -z "$CHART_SCRIPT" ] && CHART_SCRIPT="scripts/generate-charts.py"
 PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
-$PYTHON scripts/generate-charts.py \
+$PYTHON "$CHART_SCRIPT" \
   --input briefings/charts/{오늘날짜}/data.json \
   --output-dir briefings/charts/{오늘날짜}/ \
   --format auto
 ```
+
+> **스크립트를 찾을 수 없는 경우 (NOT FOUND)**: 직접 matplotlib 코드를 작성해도 되지만,
+> **반드시 아래 한국어 폰트 설정 코드를 포함하세요. 이 코드 없이는 한글이 깨집니다:**
+>
+> ```python
+> import matplotlib; matplotlib.use('Agg')
+> import matplotlib.pyplot as plt
+> import matplotlib.font_manager as fm
+> import os, platform
+>
+> # 한국어 폰트 설정 (CRITICAL - 이 블록을 빠뜨리면 한글이 깨집니다)
+> _font_paths = {
+>     'Darwin': ['/System/Library/Fonts/AppleSDGothicNeo.ttc',
+>                '/System/Library/Fonts/Supplemental/AppleGothic.ttf'],
+>     'Linux':  ['/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+>                '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'],
+> }
+> for p in _font_paths.get(platform.system(), []):
+>     if os.path.exists(p):
+>         fm.fontManager.addfont(p)
+>         plt.rcParams['font.family'] = fm.FontProperties(fname=p).get_name()
+>         break
+> plt.rcParams['axes.unicode_minus'] = False
+> # Slate Blue 색상 팔레트
+> COLORS = ['#3B82F6', '#6366F1', '#8B5CF6', '#0EA5E9', '#14B8A6', '#F59E0B']
+> ```
 
 - matplotlib 설치 시 PNG, 미설치 시 SVG로 자동 생성됩니다.
 - 스크립트 실행이 실패하면 (Python 미설치 등) 차트 없이 3단계로 진행합니다.
@@ -290,8 +322,10 @@ config.json에 `export.auto_pdf`가 `true`로 설정되어 있으면, 저장 완
 
 Bash 도구로 실행:
 ```bash
+PDF_SCRIPT=$(find ~/.claude -path "*/smart-daily-briefing/scripts/generate-pdf.py" 2>/dev/null | head -1)
+[ -z "$PDF_SCRIPT" ] && PDF_SCRIPT="scripts/generate-pdf.py"
 PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
-$PYTHON scripts/generate-pdf.py \
+$PYTHON "$PDF_SCRIPT" \
   --input briefings/{오늘날짜}.md \
   --output briefings/{오늘날짜}.pdf \
   --charts-dir briefings/charts/{오늘날짜}/

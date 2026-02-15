@@ -29,11 +29,13 @@ $ARGUMENTS
 
 ### PDF 생성
 
-차트 디렉토리 확인 후 Bash 도구로 실행합니다. **brew Python을 우선 사용합니다** (시스템 Python은 한글 폰트/라이브러리 문제가 발생할 수 있음):
+먼저 스크립트 위치를 찾고 실행합니다:
 
 ```bash
+PDF_SCRIPT=$(find ~/.claude -path "*/smart-daily-briefing/scripts/generate-pdf.py" 2>/dev/null | head -1)
+[ -z "$PDF_SCRIPT" ] && PDF_SCRIPT="scripts/generate-pdf.py"
 PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
-$PYTHON scripts/generate-pdf.py \
+$PYTHON "$PDF_SCRIPT" \
   --input briefings/{날짜}.md \
   --output briefings/{날짜}.pdf \
   --charts-dir briefings/charts/{날짜}/

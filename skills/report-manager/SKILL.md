@@ -129,10 +129,12 @@ GA4 MCP 서버가 연결되지 않았습니다.
    - Claude Code: `/smart-briefing:briefing`
    - OpenClaw: "브리핑 생성해줘"
 3. 차트 디렉토리(`briefings/charts/{날짜}/`)가 있으면 함께 전달합니다
-4. Bash 도구로 PDF 생성 스크립트를 실행합니다 (brew Python 우선):
+4. Bash 도구로 PDF 생성 스크립트를 실행합니다:
    ```bash
+   PDF_SCRIPT=$(find ~/.claude -path "*/smart-daily-briefing/scripts/generate-pdf.py" 2>/dev/null | head -1)
+   [ -z "$PDF_SCRIPT" ] && PDF_SCRIPT="scripts/generate-pdf.py"
    PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
-   $PYTHON scripts/generate-pdf.py \
+   $PYTHON "$PDF_SCRIPT" \
      --input briefings/{날짜}.md \
      --output briefings/{날짜}.pdf \
      --charts-dir briefings/charts/{날짜}/

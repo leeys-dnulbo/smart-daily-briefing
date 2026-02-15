@@ -74,6 +74,13 @@ Claude Code와 OpenClaw 두 플랫폼에서 모두 사용 가능.
 - [ ] 이상 탐지 시 자동 웹 검색으로 원인 파악
 - **블로커**: 프롬프트 인젝션 보안 위험 (보류 권장)
 
+### PDF 내보내기 (완료)
+- [x] `scripts/generate-pdf.py` - 마크다운 → HTML → PDF 변환 (weasyprint)
+- [x] `commands/export.md` - `/smart-briefing:export` 커맨드
+- [x] `report-manager` - "PDF로 만들어줘" 자연어 트리거 지원
+- [x] `briefing.md` - auto_pdf 옵션 (config.json `export.auto_pdf`)
+- [x] 차트 이미지 포함, 한국어 폰트 지원, A4 페이지 설정
+
 ### 추가 기능
 - [ ] 브리핑 히스토리 비교 (어제 vs 오늘 변화 추적)
 - [ ] 멀티 Property 지원 (여러 GA4 속성 동시 관리)

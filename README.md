@@ -111,11 +111,25 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 | `/smart-briefing:customize` | 브리핑 개인화 설정 조회/변경 |
 | `/smart-briefing:reports` | 저장된 리포트 목록 조회 |
 | `/smart-briefing:schedule` | 리포트 스케줄 조회/설정/실행 |
+| `/smart-briefing:export` | 브리핑 PDF 내보내기 |
 
 OpenClaw에서는 커맨드 대신 자연어로 동일한 기능을 사용합니다:
 - "브리핑 생성해줘" → 일일 브리핑 생성
 - "브리핑 설정 보여줘" → 개인화 설정 조회
 - "리포트 목록 보여줘" → 저장된 리포트 확인
+- "PDF로 만들어줘" → 브리핑 PDF 내보내기
+
+### PDF 내보내기
+
+마크다운 브리핑을 차트 이미지가 포함된 PDF로 변환합니다:
+
+```
+/smart-briefing:export latest        # 최신 브리핑을 PDF로
+/smart-briefing:export 2026-02-15    # 날짜 지정
+"이 브리핑 PDF로 만들어줘"            # 자연어
+```
+
+사전 요구사항: `pip install weasyprint markdown`
 
 ### 리포트 저장 및 스케줄
 
@@ -213,9 +227,11 @@ smart-daily-briefing/
 │   ├── briefing.md
 │   ├── customize.md
 │   ├── reports.md
-│   └── schedule.md
+│   ├── schedule.md
+│   └── export.md
 ├── scripts/
 │   ├── generate-charts.py     # 차트 이미지 생성 (matplotlib/SVG)
+│   ├── generate-pdf.py       # 브리핑 PDF 내보내기 (weasyprint)
 │   ├── manage-schedule.sh     # 자동 브리핑 스케줄 관리 (launchd)
 │   └── send-slack.sh          # Slack 웹훅 알림 전송
 ├── docs/
@@ -239,6 +255,7 @@ smart-daily-briefing/
 | 브리핑 개인화 | O | O |
 | 리포트 저장/실행 | O | O |
 | 차트 이미지 생성 | O | O (Python 필요) |
+| PDF 내보내기 | O (weasyprint 필요) | O (weasyprint 필요) |
 | 자동 스케줄링 | macOS launchd | OpenClaw cron (크로스 플랫폼) |
 | Slack 알림 | O (웹훅) | O (웹훅 또는 네이티브 채널) |
 | 멀티채널 알림 | - | Telegram, Discord 등 (향후) |

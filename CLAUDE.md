@@ -33,12 +33,13 @@ OpenClaw 사용자는 docs/openclaw-setup.md를 참고하세요.
 - `/smart-briefing:customize` - 브리핑 설정 조회/변경
 - `/smart-briefing:reports` - 저장된 리포트 목록
 - `/smart-briefing:schedule` - 스케줄 관리
+- `/smart-briefing:export` - 브리핑 PDF 내보내기
 - `/smart-briefing:setup` - 초기 설정 안내
 
 ## 파일 저장 위치
 
 - 리포트: `reports/*.json`
-- 브리핑: `briefings/YYYY-MM-DD.md`
+- 브리핑: `briefings/YYYY-MM-DD.md` (PDF: `briefings/YYYY-MM-DD.pdf`)
 - 개인화 설정: `config.json`
 
 ## 응답 언어

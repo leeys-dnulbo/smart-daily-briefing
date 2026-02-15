@@ -72,6 +72,7 @@ Smart Daily Briefing은 **Claude Code 및 OpenClaw**에서 동작하는 GA4 데�
 | `/smart-briefing:customize` | `commands/customize.md` | 브리핑 개인화 설정 조회/변경 |
 | `/smart-briefing:reports` | `commands/reports.md` | 저장된 리포트 목록 조회 |
 | `/smart-briefing:schedule` | `commands/schedule.md` | 스케줄 설정 및 관리 |
+| `/smart-briefing:export` | `commands/export.md` | 브리핑 PDF 내보내기 |
 
 ### 3. Agents (서브에이전트)
 
@@ -307,10 +308,12 @@ smart-daily-briefing/
 │   ├── briefing.md
 │   ├── customize.md
 │   ├── reports.md
-│   └── schedule.md
+│   ├── schedule.md
+│   └── export.md
 │
 ├── scripts/
 │   ├── generate-charts.py         ← 차트 이미지 생성 (matplotlib/SVG)
+│   ├── generate-pdf.py            ← 브리핑 PDF 내보내기 (weasyprint)
 │   ├── manage-schedule.sh         ← 스케줄 관리 (macOS launchd)
 │   └── send-slack.sh              ← Slack 알림 전송
 │

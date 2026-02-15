@@ -239,7 +239,53 @@ Slack Incoming Webhook URL 생성:
 
 ---
 
-## 10. OpenClaw 채널 전송 (향후)
+## 10. PDF 내보내기
+
+마크다운 브리핑을 차트 이미지가 포함된 PDF로 변환합니다 (Claude Code + OpenClaw 공통).
+
+### 사전 요구사항
+
+```bash
+pip install weasyprint markdown
+```
+
+### 사용 방법
+
+**Claude Code:**
+```
+/smart-briefing:export latest        # 최신 브리핑을 PDF로
+/smart-briefing:export 2026-02-15    # 특정 날짜 지정
+```
+
+**자연어 (Claude Code + OpenClaw):**
+```
+"이 브리핑 PDF로 만들어줘"
+"오늘 브리핑 PDF로 내보내줘"
+"어제 브리핑 PDF로 변환해줘"
+```
+
+### 자동 PDF 생성
+
+브리핑 생성 시 자동으로 PDF도 만들려면 `config.json`에 설정합니다:
+
+```json
+{
+  "export": {
+    "auto_pdf": true
+  }
+}
+```
+
+설정 후 `/smart-briefing:briefing` 또는 "브리핑 생성해줘"로 브리핑을 만들면 `.md`와 `.pdf`가 함께 저장됩니다.
+
+### 출력 파일
+
+- 마크다운: `briefings/YYYY-MM-DD.md`
+- PDF: `briefings/YYYY-MM-DD.pdf`
+
+---
+
+## 11. OpenClaw 채널 전송 (향후)
 
 OpenClaw에서는 Slack 외에 Telegram, Discord 등 다양한 채널로 브리핑을 전송할 수 있습니다.
 

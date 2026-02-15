@@ -1,6 +1,6 @@
 ---
 name: report-manager
-description: 리포트 저장 및 관리. 사용자가 분석 결과를 저장하거나 리포트를 실행/삭제하고 싶을 때 자동으로 활성화됩니다. 예시: "리포트로 저장해줘", "리포트 실행해줘", "리포트 삭제", "브리핑 생성해줘"
+description: 리포트 저장 및 관리. 사용자가 분석 결과를 저장하거나 리포트를 실행/삭제하고 싶을 때 자동으로 활성화됩니다. 예시: "리포트로 저장해줘", "리포트 실행해줘", "리포트 삭제", "브리핑 생성해줘", "PDF로 만들어줘"
 metadata: {"openclaw":{"emoji":"📋","requires":{"bins":["pipx"]}}}
 ---
 
@@ -118,6 +118,37 @@ GA4 MCP 서버가 연결되지 않았습니다.
 
 `/smart-briefing:reports` 로 전체 리포트 목록을 확인할 수 있어요.
 정기적으로 받아보시겠어요? (매일/매주/매월)
+```
+
+## PDF 내보내기
+
+사용자가 "PDF로 만들어줘", "PDF로 내보내줘", "이 브리핑 PDF로" 등을 요청하면:
+
+1. 가장 최근 또는 사용자가 지정한 날짜의 브리핑 파일(`briefings/{날짜}.md`)을 확인합니다
+2. 파일이 없으면 먼저 브리핑 생성을 안내합니다:
+   - Claude Code: `/smart-briefing:briefing`
+   - OpenClaw: "브리핑 생성해줘"
+3. 차트 디렉토리(`briefings/charts/{날짜}/`)가 있으면 함께 전달합니다
+4. Bash 도구로 PDF 생성 스크립트를 실행합니다:
+   ```bash
+   python3 scripts/generate-pdf.py \
+     --input briefings/{날짜}.md \
+     --output briefings/{날짜}.pdf \
+     --charts-dir briefings/charts/{날짜}/
+   ```
+5. 결과를 안내합니다:
+   - 성공: "PDF가 briefings/{날짜}.pdf에 저장되었습니다."
+   - 실패 (weasyprint/markdown 미설치): 아래 설치 안내 표시
+
+### PDF 라이브러리 미설치 안내
+
+```
+PDF 생성에 필요한 라이브러리가 설치되지 않았습니다.
+
+설치 방법:
+  pip install weasyprint markdown
+
+설치 후 다시 시도해주세요.
 ```
 
 ## OpenClaw 환경 지원

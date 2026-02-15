@@ -79,6 +79,9 @@
     "max_insights": 5,
     "max_actions": 4
   },
+  "export": {
+    "auto_pdf": false
+  },
   "notifications": {
     "slack": {
       "webhook_url": "",

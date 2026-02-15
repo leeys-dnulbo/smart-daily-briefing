@@ -61,11 +61,27 @@ config의 `briefing.sections` 배열에서 **`enabled: true`인 섹션만** 순�
 
 각 섹션에 대해 `get_ga4_data`를 호출하세요:
 
-- **dimensions**: 섹션의 `dimensions` 값
+- **dimensions**: 섹션의 `dimensions` 값 (⚠️ 아래 "빈 dimensions 처리" 참조)
 - **metrics**: 섹션의 `metrics` 값
 - **date_range_start**: config의 `briefing.date_range` 값 (예: "7daysAgo")
 - **date_range_end**: "yesterday"
 - **limit**: 섹션에 `limit`이 있으면 해당 값
+
+### 빈 dimensions 처리
+
+`get_ga4_data`는 빈 dimensions 배열(`[]`)을 지원하지 않습니다.
+`dimensions`가 `[]`인 섹션(overview, user_behavior 등)은 다음과 같이 처리하세요:
+
+1. `dimensions=["date"]`로 대체하여 호출
+2. 반환된 일별 행들의 메트릭을 집계하여 단일 객체로 변환:
+   - **합산(SUM)**: sessions, totalUsers, newUsers, screenPageViews, eventCount 등 카운트 메트릭
+   - **가중 평균**: bounceRate, engagementRate, averageSessionDuration, sessionsPerUser, screenPageViewsPerSession 등 비율/평균 메트릭 (sessions를 가중치로 사용)
+
+예시: 일별 7행 → 집계:
+```
+sessions: sum(각 행의 sessions)
+bounceRate: sum(각 행의 bounceRate × sessions) / sum(sessions)
+```
 
 ### compare_previous 처리
 

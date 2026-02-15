@@ -386,13 +386,17 @@ class MatplotlibChartGenerator:
         if font_path:
             fm.fontManager.addfont(font_path)
             prop = fm.FontProperties(fname=font_path)
-            plt.rcParams['font.family'] = prop.get_name()
+            font_name = prop.get_name()
+            plt.rcParams['font.family'] = font_name
+            print(f"  Font: {font_name} ({font_path})", file=sys.stderr)
         else:
             system = platform.system()
             if system == 'Darwin':
                 plt.rcParams['font.family'] = 'AppleGothic'
             elif system == 'Linux':
                 plt.rcParams['font.family'] = 'NanumGothic'
+            print(f"  Font: fallback ({plt.rcParams['font.family']})", file=sys.stderr)
+        plt.rcParams['axes.unicode_minus'] = False
 
     def _apply_global_style(self):
         """전역 스타일: 깔끔한 대시보드 룩"""

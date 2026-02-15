@@ -113,9 +113,12 @@ config의 `briefing.sections` 배열에서 **`enabled: true`인 섹션만** 순�
 
 ### 2.5.2 차트 생성 스크립트 실행
 
-**반드시 `scripts/generate-charts.py` 스크립트를 사용하세요. 직접 matplotlib 코드를 작성하지 마세요.** 스크립트에 한국어 폰트 자동 감지, 색상 팔레트, 전문적인 차트 디자인이 내장되어 있습니다.
+> **CRITICAL**: 차트는 반드시 아래 명령으로 `scripts/generate-charts.py`를 실행하여 생성하세요.
+> **절대로 직접 matplotlib/Python 차트 코드를 작성하지 마세요.**
+> 스크립트에 한국어 폰트 자동 감지, Slate Blue 색상 팔레트, 전문 대시보드 디자인이 내장되어 있습니다.
+> 직접 코드를 작성하면 한글이 깨지고 디자인이 일관되지 않습니다.
 
-Bash 도구로 다음 명령을 실행하세요:
+Bash 도구로 다음 명령을 **그대로** 실행하세요 (경로의 `{오늘날짜}`만 실제 날짜로 교체):
 
 ```bash
 PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \

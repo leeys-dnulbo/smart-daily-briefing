@@ -116,7 +116,7 @@ config의 `briefing.sections` 배열에서 **`enabled: true`인 섹션만** 순�
 먼저 스크립트 위치를 찾습니다. Bash 도구로 실행:
 
 ```bash
-CHART_SCRIPT=$(find ~/.claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null | head -1)
+CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)
 [ -z "$CHART_SCRIPT" ] && CHART_SCRIPT="scripts/generate-charts.py"
 echo "Chart script: $CHART_SCRIPT"
 ls -la "$CHART_SCRIPT" 2>/dev/null || echo "NOT FOUND"
@@ -125,7 +125,7 @@ ls -la "$CHART_SCRIPT" 2>/dev/null || echo "NOT FOUND"
 스크립트를 찾았으면 Bash 도구로 실행:
 
 ```bash
-CHART_SCRIPT=$(find ~/.claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null | head -1)
+CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)
 [ -z "$CHART_SCRIPT" ] && CHART_SCRIPT="scripts/generate-charts.py"
 PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
 $PYTHON "$CHART_SCRIPT" \
@@ -322,7 +322,7 @@ config.json에 `export.auto_pdf`가 `true`로 설정되어 있으면, 저장 완
 
 Bash 도구로 실행:
 ```bash
-PDF_SCRIPT=$(find ~/.claude -path "*/smart-daily-briefing/scripts/generate-pdf.py" 2>/dev/null | head -1)
+PDF_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-pdf.py" 2>/dev/null; } | head -1)
 [ -z "$PDF_SCRIPT" ] && PDF_SCRIPT="scripts/generate-pdf.py"
 PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
 $PYTHON "$PDF_SCRIPT" \

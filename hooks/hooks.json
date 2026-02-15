@@ -1,6 +1,18 @@
 {
-  "description": "차트/PDF 생성 시 내장 스크립트 사용 강제 (한글 폰트 깨짐 방지)",
+  "description": "플러그인 환경변수 주입 + 차트/PDF 내장 스크립트 사용 강제",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/inject-plugin-root.sh",
+            "timeout": 5,
+            "statusMessage": "Smart Briefing 플러그인 초기화 중..."
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

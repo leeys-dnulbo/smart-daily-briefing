@@ -32,7 +32,9 @@ $ARGUMENTS
 먼저 스크립트 위치를 찾고 실행합니다:
 
 ```bash
-PDF_SCRIPT=$({ find "$HOME/.claude" "$HOME/Library/Application Support/Claude" -name "generate-pdf.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)
+# $SMART_BRIEFING_ROOT는 SessionStart 훅이 자동 설정
+PDF_SCRIPT="${SMART_BRIEFING_ROOT}/scripts/generate-pdf.py"
+[ -z "$SMART_BRIEFING_ROOT" ] && PDF_SCRIPT=$(find "$HOME/.claude" "$HOME/Library/Application Support/Claude" -name "generate-pdf.py" -path "*smart-daily-briefing*" 2>/dev/null | head -1)
 [ -z "$PDF_SCRIPT" ] && PDF_SCRIPT="scripts/generate-pdf.py"
 PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
 $PYTHON "$PDF_SCRIPT" \

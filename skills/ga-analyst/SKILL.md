@@ -7,8 +7,9 @@ metadata: {"openclaw":{"emoji":"📊","requires":{"bins":["pipx"]}}}
 # GA4 데이터 분석 에이전트
 
 > **차트 생성 규칙**: 반드시 플러그인 내장 스크립트를 사용하세요. 직접 matplotlib 코드를 작성하면 **PreToolUse 훅에 의해 자동 차단**됩니다.
+> `$SMART_BRIEFING_ROOT`는 SessionStart 훅이 자동 설정합니다.
 > ```
-> CHART_SCRIPT=$({ find "$HOME/.claude" "$HOME/Library/Application Support/Claude" -name "generate-charts.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)
+> CHART_SCRIPT="${SMART_BRIEFING_ROOT}/scripts/generate-charts.py"
 > python3 "$CHART_SCRIPT" --input {데이터JSON} --output-dir {출력디렉토리}/ --format auto
 > ```
 

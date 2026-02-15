@@ -54,23 +54,22 @@ OpenClaw 사용자는 docs/openclaw-setup.md를 참고하세요.
 이 스크립트에는 한국어 폰트 자동 감지, 색상 팔레트, Python 자동 전환이 내장되어 있습니다.
 직접 코드를 작성하면 한글이 깨지고 디자인이 일관되지 않습니다.
 
-### 스크립트 실행 방법
+### 스크립트 경로
+
+SessionStart 훅이 `$SMART_BRIEFING_ROOT` 환경변수를 자동 설정합니다.
+모든 스크립트는 이 변수를 기준으로 참조하세요:
 
 ```bash
-# 1. 스크립트 찾기 (CLI + GUI 모두 지원)
-CHART_SCRIPT=$({ find "$HOME/.claude" "$HOME/Library/Application Support/Claude" -name "generate-charts.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)
-[ -z "$CHART_SCRIPT" ] && CHART_SCRIPT="scripts/generate-charts.py"
-
-# 2. 실행 (Python은 스크립트가 자동으로 최적의 것을 선택)
+# $SMART_BRIEFING_ROOT는 SessionStart 훅이 자동 설정
+CHART_SCRIPT="${SMART_BRIEFING_ROOT}/scripts/generate-charts.py"
 python3 "$CHART_SCRIPT" \
   --input briefings/charts/{날짜}/data.json \
   --output-dir briefings/charts/{날짜}/ \
   --format auto
 ```
 
-PDF 생성도 동일하게 `scripts/generate-pdf.py`를 사용하세요:
+PDF 생성도 동일:
 ```bash
-PDF_SCRIPT=$({ find "$HOME/.claude" "$HOME/Library/Application Support/Claude" -name "generate-pdf.py" -path "*smart-daily-briefing*" 2>/dev/null; } | head -1)
-[ -z "$PDF_SCRIPT" ] && PDF_SCRIPT="scripts/generate-pdf.py"
+PDF_SCRIPT="${SMART_BRIEFING_ROOT}/scripts/generate-pdf.py"
 python3 "$PDF_SCRIPT" --input briefings/{날짜}.md --output briefings/{날짜}.pdf
 ```

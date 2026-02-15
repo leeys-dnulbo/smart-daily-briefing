@@ -4,6 +4,20 @@ description: AI 일일 브리핑을 생성합니다. config.json 설정에 따�
 
 # 일일 브리핑 생성
 
+> ⚠️ **MANDATORY RULE — DO NOT SKIP OR IGNORE** ⚠️
+>
+> 차트 이미지를 생성할 때 **절대로 직접 Python/matplotlib 코드를 작성하지 마세요.**
+> **반드시** 아래 명령으로 플러그인 내장 스크립트를 실행하세요:
+>
+> ```
+> CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)
+> python3 "$CHART_SCRIPT" --input briefings/charts/{날짜}/data.json --output-dir briefings/charts/{날짜}/ --format auto
+> ```
+>
+> 이 규칙을 위반하면 **한글 폰트가 깨지고**, **디자인이 일관되지 않으며**, **사용자에게 품질 문제가 발생합니다.**
+> 스크립트에 한국어 폰트 자동 감지, Slate Blue 색상 팔레트, Python 자동 전환이 내장되어 있습니다.
+> **이 규칙은 어떤 상황에서도 예외 없이 적용됩니다. matplotlib 코드를 직접 작성하는 것은 금지입니다.**
+
 GA4 데이터를 종합적으로 수집하고 분석하여 일일 브리핑을 생성하세요.
 
 ## 사전 확인: MCP 서버 연결

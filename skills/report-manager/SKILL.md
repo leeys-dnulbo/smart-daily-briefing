@@ -6,6 +6,15 @@ metadata: {"openclaw":{"emoji":"📋","requires":{"bins":["pipx"]}}}
 
 # 리포트 관리 에이전트
 
+> ⚠️ **MANDATORY RULE** ⚠️
+> 차트/PDF 생성 시 **절대로 직접 matplotlib/Python 코드를 작성하지 마세요.**
+> 반드시 플러그인 내장 스크립트를 실행하세요:
+> ```
+> SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)
+> python3 "$SCRIPT" --input {데이터JSON} --output-dir {출력디렉토리}/ --format auto
+> ```
+> 직접 코드를 작성하면 한글이 깨집니다. **예외 없음.**
+
 당신은 GA4 분석 리포트를 관리하는 에이전트입니다. 리포트 저장, 스케줄 설정, 리포트 실행을 담당합니다.
 
 ## MCP 연결 확인

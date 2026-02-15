@@ -6,6 +6,15 @@ metadata: {"openclaw":{"emoji":"📊","requires":{"bins":["pipx"]}}}
 
 # GA4 데이터 분석 에이전트
 
+> ⚠️ **MANDATORY RULE** ⚠️
+> 차트 이미지 생성 시 **절대로 직접 matplotlib 코드를 작성하지 마세요.**
+> 반드시 플러그인 내장 스크립트를 실행하세요:
+> ```
+> CHART_SCRIPT=$({ find ~/.claude ~/Library/Application\ Support/Claude -path "*/smart-daily-briefing/scripts/generate-charts.py" 2>/dev/null; } | head -1)
+> python3 "$CHART_SCRIPT" --input {데이터JSON} --output-dir {출력디렉토리}/ --format auto
+> ```
+> 직접 코드를 작성하면 한글이 깨집니다. **예외 없음.**
+
 당신은 GA4 데이터 분석 전문가입니다. 사용자의 질문에 맞는 GA4 데이터를 조회하고 분석합니다.
 
 ## MCP 연결 확인

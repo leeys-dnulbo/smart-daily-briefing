@@ -392,8 +392,12 @@ class SvgChartGenerator:
 # ============================================================
 #  폰트 검색 경로 (플랫폼별)
 # ============================================================
-# AppleSDGothicNeo.ttc는 CFF-in-TTC 형식으로 matplotlib/weasyprint에서 문제를 일으킴
-# AppleGothic.ttf (정상 TrueType)를 최우선으로 사용
+# 1순위: 플러그인 번들 폰트 (fonts/NanumGothic-Regular.ttf) → 컨테이너 환경에서도 동작
+# 2순위: macOS 시스템 폰트 (AppleGothic.ttf 우선, AppleSDGothicNeo.ttc는 CFF-in-TTC 문제)
+# 3순위: Linux 시스템 폰트
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_BUNDLED_FONT = os.path.join(_SCRIPT_DIR, '..', 'fonts', 'NanumGothic-Regular.ttf')
+
 FONT_PATHS = {
     'Darwin': [
         '/System/Library/Fonts/Supplemental/AppleGothic.ttf',
@@ -411,13 +415,19 @@ FONT_PATHS = {
 
 
 def _find_korean_font():
-    """시스템에서 한국어 폰트 파일을 찾아 반환"""
+    """한국어 폰트 파일을 찾아 반환 (번들 폰트 → 시스템 폰트 → fc-list)"""
+    # 1순위: 플러그인 번들 폰트
+    bundled = os.path.abspath(_BUNDLED_FONT)
+    if os.path.exists(bundled):
+        return bundled
+
+    # 2순위: 플랫폼별 시스템 폰트
     system = platform.system()
     for path in FONT_PATHS.get(system, []):
         if os.path.exists(path):
             return path
 
-    # fc-list fallback
+    # 3순위: fc-list fallback
     try:
         result = subprocess.run(
             ['fc-list', ':lang=ko', 'file'],

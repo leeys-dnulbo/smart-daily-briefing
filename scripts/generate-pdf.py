@@ -116,8 +116,12 @@ NEGATIVE_COLOR = '#EF4444'
 
 # ---------- 한국어 폰트 ----------
 
-# AppleSDGothicNeo.ttc는 CFF-in-TTC 형식으로 weasyprint에서 CID keyed font 문제 유발
-# AppleGothic.ttf (정상 TrueType)를 최우선으로 사용
+# 1순위: 플러그인 번들 폰트 (컨테이너 환경에서도 동작)
+# 2순위: macOS 시스템 폰트 (AppleGothic.ttf 우선, AppleSDGothicNeo.ttc는 CFF-in-TTC 문제)
+# 3순위: Linux 시스템 폰트
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_BUNDLED_FONT = os.path.join(_SCRIPT_DIR, '..', 'fonts', 'NanumGothic-Regular.ttf')
+
 FONT_SEARCH = {
     'Darwin': [
         '/System/Library/Fonts/Supplemental/AppleGothic.ttf',
@@ -135,16 +139,21 @@ FONT_SEARCH = {
 
 
 def _find_font_file(candidates):
-    """후보 경로 목록에서 존재하는 첫 번째 폰트 파일 반환"""
+    """한국어 폰트 파일 찾기 (번들 폰트 → 시스템 폰트 → fc-list)"""
+    # 1순위: 플러그인 번들 폰트
+    bundled = os.path.abspath(_BUNDLED_FONT)
+    if os.path.exists(bundled):
+        return bundled
+
+    # 2순위: 플랫폼별 시스템 폰트
     for path in candidates:
-        # glob 패턴 지원 (예: /usr/share/fonts/**/NanumGothic.ttf)
         matches = glob.glob(path)
         if matches:
             return matches[0]
         if os.path.exists(path):
             return path
 
-    # fc-list fallback: fontconfig로 한국어 폰트 검색
+    # 3순위: fc-list fallback
     try:
         result = subprocess.run(
             ['fc-list', ':lang=ko', 'file'],

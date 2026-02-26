@@ -232,14 +232,19 @@ smart-daily-briefing/
 │   ├── schedule.md
 │   └── export.md
 ├── scripts/
+│   ├── utils.py               # 공통 유틸리티 (폰트, atomic write 등)
 │   ├── generate-charts.py     # 차트 이미지 생성 (matplotlib/SVG)
 │   ├── generate-pdf.py        # 브리핑 PDF 내보내기 (weasyprint)
-│   ├── manage-schedule.sh     # 자동 브리핑 스케줄 관리 (launchd)
-│   └── send-slack.sh          # Slack 웹훅 알림 전송
+│   ├── manage-schedule.sh     # 자동 브리핑 스케줄 관리 (launchd/systemd)
+│   └── send-slack.sh          # Slack 웹훅 알림 전송 (재시도 + 큐)
 ├── hooks/
 │   ├── hooks.json             # 훅 설정 (SessionStart, PreToolUse)
 │   ├── inject-plugin-root.sh  # $SMART_BRIEFING_ROOT 환경변수 주입
-│   └── validate-chart-code.py # matplotlib/weasyprint 직접 사용 차단
+│   └── validate-chart-code.py # AST 기반 matplotlib/weasyprint 차단
+├── tests/                     # pytest 테스트
+│   ├── conftest.py
+│   ├── test_utils.py
+│   └── test_validate_chart_code.py
 ├── fonts/
 │   ├── NanumGothic-Regular.ttf # 번들 한국어 폰트 (컨테이너 환경용)
 │   └── OFL.txt                # SIL Open Font License
@@ -265,7 +270,7 @@ smart-daily-briefing/
 | 리포트 저장/실행 | O | O |
 | 차트 이미지 생성 | O | O (Python 필요) |
 | PDF 내보내기 | O (weasyprint 필요) | O (weasyprint 필요) |
-| 자동 스케줄링 | macOS launchd | OpenClaw cron (크로스 플랫폼) |
+| 자동 스케줄링 | macOS launchd / Linux systemd | OpenClaw cron (크로스 플랫폼) |
 | Slack 알림 | O (웹훅) | O (웹훅 또는 네이티브 채널) |
 | 멀티채널 알림 | - | Telegram, Discord 등 (향후) |
 | 슬래시 커맨드 | O | - |

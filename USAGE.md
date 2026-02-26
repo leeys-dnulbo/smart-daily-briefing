@@ -286,9 +286,29 @@ pip install weasyprint markdown
 
 ---
 
-## 11. OpenClaw 채널 전송 (향후)
+## 11. OpenClaw 채널 전송
 
-OpenClaw에서는 Slack 외에 Telegram, Discord 등 다양한 채널로 브리핑을 전송할 수 있습니다.
+OpenClaw에서 Slack으로 브리핑 결과를 전송할 수 있습니다.
 
-> 현재 OpenClaw의 API 키 직렬화 보안 이슈(Issue #11202) 수정 대기 중입니다.
-> 해당 이슈가 해결되면 멀티채널 알림 기능이 추가됩니다.
+```bash
+openclaw cron add --name "GA4-daily-briefing" \
+  --cron "0 9 * * *" --tz "Asia/Seoul" \
+  --session isolated \
+  --announce --channel slack --to "webhook:${SLACK_WEBHOOK_URL}" \
+  --message "GA4 일일 브리핑을 생성해줘."
+```
+
+> Telegram, Discord 채널은 v1.12.0에서 지원 예정입니다.
+
+---
+
+## 12. 테스트 실행
+
+v1.10.0부터 pytest 기반 테스트가 포함됩니다.
+
+```bash
+pip install pytest
+python3 -m pytest tests/ -v
+```
+
+35개 테스트: utils.py 유틸리티 + AST 코드 검증기

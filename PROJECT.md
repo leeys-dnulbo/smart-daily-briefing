@@ -246,6 +246,7 @@ smart-daily-briefing/
 | v1.8.2 | NanumGothic 폰트 번들 (컨테이너 환경 지원) |
 | v1.8.3 | PDF 자동 생성 기본 활성화 |
 | v1.9.0 | 문서 정비 (ARCHITECTURE.md, PROJECT.md) |
+| v1.10.0 | 기반 안정성: utils.py 공통화, AST 코드 검증, JSON sidecar, 스케줄 DRY/systemd, Slack 재시도, 테스트 프레임워크, OpenClaw 강화 |
 
 ---
 

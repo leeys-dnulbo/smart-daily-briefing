@@ -24,6 +24,7 @@ graph TB
 
         subgraph Output["출력 계층"]
             MD["briefings/*.md"]
+            JSON["briefings/*.json<br/><small>sidecar 구조화 데이터</small>"]
             PDF["briefings/*.pdf"]
             Charts["briefings/charts/"]
             Reports["reports/*.json"]
@@ -251,3 +252,38 @@ flowchart TB
     D -->|Yes| E[검색된 경로 사용]
     D -->|No| F["scripts/generate-charts.py<br/><small>현재 디렉토리 fallback</small>"]
 ```
+
+---
+
+## v1.10.0 아키텍처 변경사항
+
+### scripts/utils.py (공통 유틸리티)
+
+`generate-charts.py`와 `generate-pdf.py`에서 중복된 코드를 추출한 공유 모듈:
+
+| 함수 | 역할 |
+|------|------|
+| `ensure_best_python(test_import)` | homebrew Python 우선 자동 전환 |
+| `auto_install(*packages)` | pip 자동 설치 (2회 시도) |
+| `find_korean_font()` | 한국어 폰트 탐색 (번들 → 시스템 → fc-list) |
+| `safe_write(path, data)` | atomic write (tempfile → os.replace) |
+| `safe_write_json(path, obj)` | JSON atomic write |
+
+### JSON sidecar 저장
+
+브리핑 생성 시 `briefings/YYYY-MM-DD.json` 파일을 함께 생성합니다.
+구조화된 metrics, anomalies, insights를 저장하여 향후 비교/주간 기능의 데이터 소스로 활용합니다.
+
+### AST 기반 코드 검증 (validate-chart-code.py)
+
+기존 regex denylist 방식에서 `ast.NodeVisitor` 기반 whitelist 방식으로 재작성:
+- `visit_Import`, `visit_ImportFrom`: 직접 import 차단
+- `visit_Call`: `__import__()`, `importlib.import_module()`, `eval()`, `exec()` 차단
+- `visit_Constant`: 인코딩된 바이트 리터럴 차단
+- 비-Python 코드는 text fallback 검사
+
+### 테스트 프레임워크
+
+`tests/` 디렉토리에 pytest 기반 테스트:
+- `test_utils.py`: safe_write, 폰트 검색, auto_install (17 tests)
+- `test_validate_chart_code.py`: AST 검증 차단/허용/엣지케이스 (18 tests)

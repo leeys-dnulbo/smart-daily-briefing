@@ -89,8 +89,23 @@ Claude Code와 OpenClaw 두 플랫폼에서 모두 사용 가능.
 - [x] CFF-in-TTC 폰트 문제 해결 (AppleGothic.ttf 우선, FontProperties 직접 적용)
 - [x] homebrew Python 자동 전환 (macOS)
 
-### 추가 기능
-- [ ] 브리핑 히스토리 비교 (어제 vs 오늘 변화 추적)
+### v1.10.0 기반 안정성 (완료)
+- [x] `scripts/utils.py` - 공통 유틸리티 (Python 재실행, 자동설치, 폰트 탐색, atomic write)
+- [x] `generate-charts.py`, `generate-pdf.py` 리팩토링 (utils.py 활용, 중복 ~200줄 제거)
+- [x] `validate-chart-code.py` AST 기반 재작성 (regex denylist → AST whitelist)
+- [x] `manage-schedule.sh` DRY 리팩토링 (validate_time, generate_plist/run_script, Linux systemd 지원)
+- [x] `send-slack.sh` 재시도 로직 (send_with_retry, notification-queue.json)
+- [x] JSON sidecar 저장 (briefings/YYYY-MM-DD.json, 비교/주간 기능 전제조건)
+- [x] 테스트 프레임워크 (pytest, 35 tests: utils + AST 검증)
+- [x] OpenClaw 강화 (openclaw.json.example 환경변수/채널/타임존, setup docs 트러블슈팅)
+
+### 추가 기능 (향후)
+- [ ] 주간 요약 브리핑 (`/smart-briefing:briefing weekly`) — v1.11.0
+- [ ] 브리핑 비교 (briefing sub-option, JSON sidecar 기반) — v1.11.0
+- [ ] Python 알림 시스템 (send-notification.py, 이상 탐지 즉시 알림) — v1.12.0
+- [ ] 헬스체크 스킬/커맨드 (health-checker) — v2.0.0
+- [ ] 멀티채널 알림 (Telegram, Discord) — v2.0.0
+- [ ] 커맨드 계층화 (8개 flat → 그룹화) — v2.0.0
 - [ ] 멀티 Property 지원 (여러 GA4 속성 동시 관리)
 - [ ] ClawHub 마켓플레이스 등록
 

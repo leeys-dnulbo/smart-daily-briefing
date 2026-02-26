@@ -257,13 +257,21 @@ def enqueue(msg_type, payload):
     if not os.path.isdir(queue_dir):
         os.makedirs(queue_dir, exist_ok=True)
 
+    tmp = None
     try:
         fd, tmp = tempfile.mkstemp(dir=queue_dir, suffix=".tmp")
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(queue, f, ensure_ascii=False, indent=2)
         os.replace(tmp, QUEUE_PATH)
+        tmp = None  # 성공 시 정리 불필요
     except OSError as e:
         log(f"Failed to write queue: {e}")
+    finally:
+        if tmp and os.path.exists(tmp):
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
 
 def flush_queue(channel, config):
@@ -296,14 +304,22 @@ def flush_queue(channel, config):
             failed.append(entry)
 
     # atomic 재작성
+    tmp = None
     try:
         queue_dir = os.path.dirname(QUEUE_PATH)
         fd, tmp = tempfile.mkstemp(dir=queue_dir, suffix=".tmp")
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(failed, f, ensure_ascii=False, indent=2)
         os.replace(tmp, QUEUE_PATH)
-    except OSError:
-        pass
+        tmp = None
+    except OSError as e:
+        log(f"Failed to update queue file after flush: {e}", channel.name)
+    finally:
+        if tmp and os.path.exists(tmp):
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
     return sent, len(failed)
 
@@ -338,7 +354,7 @@ def get_channel_status(config):
         try:
             with open(QUEUE_PATH, encoding="utf-8") as f:
                 queue_size = len(json.load(f))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError, TypeError):
             pass
     statuses["_queue"] = {"pending": queue_size}
     return statuses
@@ -372,6 +388,9 @@ def action_briefing(config, date=None):
     """브리핑 알림 전송."""
     if date is None:
         date = datetime.now().strftime("%Y-%m-%d")
+    elif not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        print(f"유효하지 않은 날짜 형식: {date} (YYYY-MM-DD)", file=sys.stderr)
+        return 2
 
     briefing_path = os.path.join(PLUGIN_DIR, "briefings", f"{date}.md")
     if not os.path.exists(briefing_path):
@@ -414,6 +433,10 @@ def action_anomaly(config, anomalies_json):
         anomalies = json.loads(anomalies_json)
     except (json.JSONDecodeError, TypeError):
         print("유효하지 않은 anomaly JSON", file=sys.stderr)
+        return 2
+
+    if not isinstance(anomalies, list):
+        print("anomaly JSON은 배열이어야 합니다", file=sys.stderr)
         return 2
 
     if not anomalies:

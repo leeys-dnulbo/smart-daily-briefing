@@ -452,3 +452,76 @@ class TestActionHistoryEdgeCases:
         assert result == 0
         captured = capsys.readouterr()
         assert "?%" in captured.out
+
+
+# ---------- 날짜 유효성 검증 (calendar) ----------
+
+
+class TestDateCalendarValidation:
+    def test_invalid_calendar_date(self, tmp_plugin_dir, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["anomaly-monitor.py", "2026-02-30"])
+        result = main()
+        assert result == 2
+        captured = capsys.readouterr()
+        assert "존재하지 않는 날짜" in captured.err
+
+    def test_invalid_month(self, tmp_plugin_dir, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["anomaly-monitor.py", "2026-13-01"])
+        result = main()
+        assert result == 2
+        captured = capsys.readouterr()
+        assert "존재하지 않는 날짜" in captured.err
+
+
+# ---------- get_alert_config 검증 ----------
+
+
+class TestGetAlertConfigValidation:
+    def test_negative_cooldown_uses_default(self):
+        config = get_alert_config({
+            "notifications": {"anomaly_alerts": {"cooldown_hours": -5}}
+        })
+        assert config["cooldown_hours"] == 24
+
+    def test_zero_max_alerts_uses_default(self):
+        config = get_alert_config({
+            "notifications": {"anomaly_alerts": {"max_alerts_per_day": 0}}
+        })
+        assert config["max_alerts_per_day"] == 10
+
+    def test_string_cooldown_uses_default(self):
+        config = get_alert_config({
+            "notifications": {"anomaly_alerts": {"cooldown_hours": "bad"}}
+        })
+        assert config["cooldown_hours"] == 24
+
+    def test_unknown_severity_uses_default(self):
+        config = get_alert_config({
+            "notifications": {"anomaly_alerts": {"min_severity": "extreme"}}
+        })
+        assert config["min_severity"] == "warning"
+
+
+# ---------- filter_anomalies: empty metric ----------
+
+
+class TestFilterEmptyMetric:
+    def test_empty_metric_skipped(self):
+        anomalies = [
+            {"metric": "", "change_pct": 25.0, "severity": "warning"},
+            {"metric": "sessions", "change_pct": 30.0, "severity": "warning"},
+        ]
+        history = {"alerts": []}
+        config = {"cooldown_hours": 24, "max_alerts_per_day": 10, "min_severity": "warning"}
+        filtered = filter_anomalies(anomalies, history, config)
+        assert len(filtered) == 1
+        assert filtered[0]["metric"] == "sessions"
+
+    def test_missing_metric_skipped(self):
+        anomalies = [
+            {"change_pct": 25.0, "severity": "warning"},
+        ]
+        history = {"alerts": []}
+        config = {"cooldown_hours": 24, "max_alerts_per_day": 10, "min_severity": "warning"}
+        filtered = filter_anomalies(anomalies, history, config)
+        assert len(filtered) == 0

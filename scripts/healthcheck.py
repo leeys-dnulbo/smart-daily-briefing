@@ -8,7 +8,7 @@ Smart Daily Briefing - 환경 진단 (헬스체크)
 Usage:
     python3 scripts/healthcheck.py              # 전체 진단
     python3 scripts/healthcheck.py --json       # JSON 출력
-    python3 scripts/healthcheck.py --check mcp  # 특정 항목만
+    python3 scripts/healthcheck.py --check config,slack  # 특정 항목만
 
 Exit codes:
     0 = all OK

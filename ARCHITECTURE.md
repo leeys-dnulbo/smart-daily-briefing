@@ -130,10 +130,10 @@ flowchart TB
 
 | 타입 | 용도 | 섹션 |
 |------|------|------|
-| `daily_trend` | 일별 추이 라인 차트 | 일별 트렌드, 핵심 지표 |
-| `horizontal_bar` | 수평 막대 (Top N) | 상위 페이지, 트래픽 소스, 랜딩 페이지 |
-| `pie` | 파이 차트 (비율) | 디바이스별 |
-| `change_bar` | 전주 대비 변화율 | 이상 탐지 |
+| `daily_trend` | 일별 추이 (bar+line 복합) | 일별 트렌드, 주간 일별 추이 |
+| `horizontal_bar` | 수평 막대 (Top N) | 상위 페이지, 트래픽 소스, 랜딩 페이지, 캠페인, 이벤트 |
+| `pie` / 도넛 | 비율 차트 | 디바이스별 |
+| `change_bar` | 전주 대비 변화율 | 핵심 지표, 사용자 행동패턴, 주간 비교 |
 
 ---
 
@@ -191,8 +191,8 @@ graph TB
         P1["default<br/><small>overview, pages,<br/>traffic, trend, device</small>"]
         P2["behavior<br/><small>overview, user_behavior,<br/>top_pages, events, trend</small>"]
         P3["traffic<br/><small>overview, traffic_sources,<br/>landing_pages, trend, device</small>"]
-        P4["campaign<br/><small>overview, campaigns,<br/>traffic_sources, landing, trend</small>"]
-        P5["content<br/><small>pages 강화,<br/>+ landing, events</small>"]
+        P4["campaign<br/><small>overview, campaigns,<br/>traffic_sources, landing_pages, trend</small>"]
+        P5["content<br/><small>overview, top_pages,<br/>landing_pages, events, trend</small>"]
     end
 
     Config["config.json"]

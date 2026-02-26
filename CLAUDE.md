@@ -40,9 +40,10 @@ OpenClaw 사용자는 docs/openclaw-setup.md를 참고하세요.
 
 - 리포트: `reports/*.json`
 - 브리핑: `briefings/YYYY-MM-DD.md` (PDF: `briefings/YYYY-MM-DD.pdf`)
-- 주간 브리핑: `briefings/weekly-YYYY-MM-DD.md`
+- 주간 브리핑: `briefings/weekly-YYYY-MM-DD.md` (PDF: `briefings/weekly-YYYY-MM-DD.pdf`)
 - 브리핑 sidecar: `briefings/YYYY-MM-DD.json` (구조화 데이터)
 - 차트: `briefings/charts/YYYY-MM-DD/` (PNG/SVG)
+- 주간 차트: `briefings/charts/weekly-YYYY-MM-DD/`
 - 개인화 설정: `config.json`
 
 ## 응답 언어

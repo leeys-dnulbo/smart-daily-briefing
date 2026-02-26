@@ -618,3 +618,40 @@ class TestExtractSectionEdgeCases:
     def test_last_section_no_trailing_heading(self):
         md = "## 액션 아이템\n- item 1\n- item 2"
         assert _extract_section(md, "액션 아이템") == "- item 1\n- item 2"
+
+
+# ---------- date validation ----------
+
+
+class TestDateValidation:
+    def test_briefing_path_traversal(self, tmp_plugin_dir, slack_config, capsys):
+        result = action_briefing(slack_config, "../../etc/passwd")
+        assert result == 2
+        captured = capsys.readouterr()
+        assert "유효하지 않은 날짜" in captured.err
+
+    def test_briefing_valid_date_format(self, tmp_plugin_dir, slack_config, capsys):
+        result = action_briefing(slack_config, "2026-02-26")
+        # 파일이 없으므로 1을 반환하지만, 날짜 검증은 통과
+        assert result == 1
+
+
+# ---------- anomaly JSON type validation ----------
+
+
+class TestAnomalyJsonType:
+    def test_dict_json_rejected(self, tmp_plugin_dir, capsys):
+        result = action_anomaly({}, '{"metric":"sessions"}')
+        assert result == 2
+        captured = capsys.readouterr()
+        assert "배열" in captured.err
+
+    def test_string_json_rejected(self, tmp_plugin_dir, capsys):
+        result = action_anomaly({}, '"just a string"')
+        assert result == 2
+        captured = capsys.readouterr()
+        assert "배열" in captured.err
+
+    def test_number_json_rejected(self, tmp_plugin_dir, capsys):
+        result = action_anomaly({}, '42')
+        assert result == 2

@@ -67,13 +67,26 @@ def load_config():
 
 
 def get_alert_config(config):
-    """알림 설정 추출."""
+    """알림 설정 추출 (값 검증 포함)."""
     alert = config.get("notifications", {}).get("anomaly_alerts", {})
+
+    cooldown = alert.get("cooldown_hours", DEFAULT_COOLDOWN_HOURS)
+    if not isinstance(cooldown, (int, float)) or cooldown < 0:
+        cooldown = DEFAULT_COOLDOWN_HOURS
+
+    max_alerts = alert.get("max_alerts_per_day", DEFAULT_MAX_ALERTS_PER_DAY)
+    if not isinstance(max_alerts, int) or max_alerts < 1:
+        max_alerts = DEFAULT_MAX_ALERTS_PER_DAY
+
+    min_severity = alert.get("min_severity", "warning")
+    if min_severity not in SEVERITY_LEVELS:
+        min_severity = "warning"
+
     return {
-        "enabled": alert.get("enabled", True),
-        "cooldown_hours": alert.get("cooldown_hours", DEFAULT_COOLDOWN_HOURS),
-        "max_alerts_per_day": alert.get("max_alerts_per_day", DEFAULT_MAX_ALERTS_PER_DAY),
-        "min_severity": alert.get("min_severity", "warning"),
+        "enabled": bool(alert.get("enabled", True)),
+        "cooldown_hours": cooldown,
+        "max_alerts_per_day": max_alerts,
+        "min_severity": min_severity,
     }
 
 
@@ -168,6 +181,8 @@ def filter_anomalies(anomalies, history, alert_config):
     filtered = []
     for anomaly in anomalies:
         metric = anomaly.get("metric", "")
+        if not metric:
+            continue
         severity = anomaly.get("severity", "warning")
         level = SEVERITY_LEVELS.get(severity, 1)
 
@@ -298,9 +313,13 @@ def action_history():
         print("알림 히스토리가 없습니다.")
         return 0
 
-    print(f"이상 탐지 알림 히스토리 ({len(alerts)}건):")
+    shown = alerts[-20:]
+    if len(alerts) > 20:
+        print(f"이상 탐지 알림 히스토리 ({len(alerts)}건 중 최근 {len(shown)}건):")
+    else:
+        print(f"이상 탐지 알림 히스토리 ({len(alerts)}건):")
     print()
-    for a in reversed(alerts[-20:]):  # 최근 20개
+    for a in reversed(shown):
         ts = a.get("timestamp", "?")[:19]
         metric = a.get("metric", "?")
         change = a.get("change_pct", 0)
@@ -336,9 +355,14 @@ def main():
     elif arg == "clear":
         return action_clear()
     else:
-        # YYYY-MM-DD 날짜 형식 검증
+        # YYYY-MM-DD 날짜 형식 및 유효성 검증
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", arg):
             print(f"유효하지 않은 날짜 형식: {arg} (YYYY-MM-DD)", file=sys.stderr)
+            return 2
+        try:
+            datetime.strptime(arg, "%Y-%m-%d")
+        except ValueError:
+            print(f"존재하지 않는 날짜: {arg}", file=sys.stderr)
             return 2
         return action_monitor(arg)
 

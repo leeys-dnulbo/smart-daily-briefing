@@ -127,7 +127,7 @@ macOS launchd를 이용하여 매일 자동 브리핑 스케줄을 설치합니�
      - 사용자가 URL을 입력하면:
        1. `https://` 시작 여부 검증
        2. config.json에 `notifications.slack.webhook_url` 저장, `enabled: true` 설정
-       3. `bash scripts/send-slack.sh test`로 테스트 메시지 전송
+       3. `python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" test`로 테스트 메시지 전송
        4. 성공하면 "Slack 알림이 설정되었습니다!" 안내
      - "아니요"/"나중에"이면 건너뜁니다
      - 이미 webhook_url이 설정되어 있으면 이 단계를 건너뜁니다

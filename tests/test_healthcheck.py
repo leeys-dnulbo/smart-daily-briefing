@@ -231,11 +231,11 @@ class TestSlackCheck:
         config = {"notifications": {"slack": {"webhook_url": "https://hooks.slack.com/test"}}}
         (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
 
+        def raise_connection_error(*a, **kw):
+            raise ConnectionError("timeout")
+
         import urllib.request
-        monkeypatch.setattr(
-            urllib.request, "urlopen",
-            lambda *a, **kw: (_ for _ in ()).throw(ConnectionError("timeout")),
-        )
+        monkeypatch.setattr(urllib.request, "urlopen", raise_connection_error)
         status, msg = SlackCheck().check(ctx)
         assert status == "WARN"
         assert "ConnectionError" in msg

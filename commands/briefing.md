@@ -293,6 +293,48 @@ tablet   █████░░░░░░░░░░░░░░░  13.7%    
 
 Unicode 블록 차트가 포함된 브리핑을 터미널에 그대로 표시합니다 (위의 시각화 규칙 적용).
 
+### JSON sidecar 저장
+
+브리핑의 핵심 지표를 구조화된 JSON으로 `briefings/{오늘날짜}.json`에 저장합니다.
+이 파일은 향후 브리핑 비교, 주간 요약 등의 기능에서 활용됩니다.
+
+```json
+{
+  "date": "YYYY-MM-DD",
+  "preset": "default",
+  "date_range": "7daysAgo",
+  "anomaly_threshold": 20,
+  "metrics": {
+    "sessions": { "current": 7500, "previous": 6680, "change_pct": 12.3 },
+    "totalUsers": { "current": 5200, "previous": 4780, "change_pct": 8.8 },
+    "newUsers": { "current": 2100, "previous": 1950, "change_pct": 7.7 },
+    "bounceRate": { "current": 0.42, "previous": 0.45, "change_pct": -6.7 },
+    "averageSessionDuration": { "current": 185.3, "previous": 152.0, "change_pct": 21.9 },
+    "screenPageViews": { "current": 12400, "previous": 10800, "change_pct": 14.8 },
+    "engagementRate": { "current": 0.58, "previous": 0.55, "change_pct": 5.5 }
+  },
+  "anomalies": [
+    { "metric": "averageSessionDuration", "change_pct": 21.9, "severity": "warning" }
+  ],
+  "insights": [
+    { "severity": "info", "text": "모바일 트래픽이 54%로 전주 대비 3.2%p 증가" }
+  ],
+  "top_sources": [
+    { "source": "google/organic", "sessions": 1842, "share_pct": 45.2 }
+  ],
+  "top_pages": [
+    { "path": "/", "pageviews": 3421 }
+  ]
+}
+```
+
+**sidecar JSON 생성 규칙:**
+- `metrics`: overview 섹션의 현재/이전 기간 값과 변화율. 이전 기간이 없으면 `previous`와 `change_pct`를 `null`로.
+- `anomalies`: `anomaly_threshold` 이상 변화한 지표 목록. severity는 threshold 기준: threshold~threshold×1.5 = "warning", 그 이상 = "critical".
+- `insights`: 브리핑에서 도출한 인사이트 목록 (최대 `max_insights`개).
+- `top_sources`: traffic_sources 섹션 상위 5개. 섹션이 비활성이면 빈 배열.
+- `top_pages`: top_pages 섹션 상위 5개. 섹션이 비활성이면 빈 배열.
+
 ### 파일 저장
 
 브리핑을 `briefings/{오늘날짜}.md` 파일로 저장합니다.

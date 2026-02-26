@@ -193,7 +193,7 @@ class FontCheck(HealthCheckItem):
         if not os.path.exists(utils_path):
             return "WARN", "utils.py 파일 없음"
         try:
-            spec = importlib.util.spec_from_file_location("utils", utils_path)
+            spec = importlib.util.spec_from_file_location("_healthcheck_utils", utils_path)
             utils_mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(utils_mod)
             font_path = utils_mod.find_korean_font()

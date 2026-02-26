@@ -227,6 +227,11 @@ class TestValidateSidecar:
         is_valid, warnings = validate_sidecar(data)
         assert any("문자열" in w for w in warnings)
 
+    def test_empty_date_warns(self):
+        data = _make_valid_sidecar(date="")
+        is_valid, warnings = validate_sidecar(data)
+        assert any("비어 있습니다" in w for w in warnings)
+
 
 # ---------- normalize_sidecar 테스트 ----------
 

@@ -69,13 +69,16 @@ def validate_sidecar(data):
 
     # date 형식 (YYYY-MM-DD) — datetime.date.fromisoformat으로 실제 유효성 검증
     date_val = data.get("date", "")
-    if isinstance(date_val, str) and date_val:
-        try:
-            from datetime import date as _date
-            _date.fromisoformat(date_val)
-        except (ValueError, TypeError):
-            warnings.append(f"date 형식이 YYYY-MM-DD가 아닙니다: {date_val}")
-    elif date_val is not None and not isinstance(date_val, str):
+    if isinstance(date_val, str):
+        if not date_val:
+            warnings.append("date가 비어 있습니다")
+        else:
+            try:
+                from datetime import date as _date
+                _date.fromisoformat(date_val)
+            except (ValueError, TypeError):
+                warnings.append(f"date 형식이 YYYY-MM-DD가 아닙니다: {date_val}")
+    elif date_val is not None:
         warnings.append(f"date는 문자열이어야 합니다: {type(date_val).__name__}")
 
     # schema_version
@@ -225,8 +228,10 @@ def aggregate_sidecars(sidecars):
         sidecars: list[dict] — 일별 sidecar JSON 목록 (정규화 완료된 상태)
 
     Returns:
-        dict — 집계된 metrics. 각 키에 대해:
-            {"total": float, "daily_values": list, "avg": float}
+        dict — 집계된 metrics. 키 유형별 구조가 다름:
+            SUM 메트릭: {"total": float, "daily_values": list, "avg": float}
+            RATE 메트릭: {"weighted_avg": float, "daily_values": list, "avg": float}
+            알 수 없는 메트릭: SUM과 동일 구조
     """
     if not sidecars:
         return {}

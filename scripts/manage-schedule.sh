@@ -123,7 +123,8 @@ generate_plist() {
   local weekday_entry=""
   if [ -n "$weekday" ]; then
     weekday_entry="    <key>Weekday</key>
-    <integer>${weekday}</integer>"
+    <integer>${weekday}</integer>
+"
   fi
 
   cat > "$plist_path" << PLIST_EOF

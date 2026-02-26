@@ -1,6 +1,6 @@
 ---
-description: AI 브리핑을 생성합니다. weekly로 주간 요약이 가능합니다.
-argument-hint: "[daily | weekly | weekly YYYY-MM-DD]"
+description: AI 브리핑을 생성합니다. weekly 주간 요약, compare 날짜 비교가 가능합니다.
+argument-hint: "[daily | weekly | weekly YYYY-MM-DD | compare | compare YYYY-MM-DD YYYY-MM-DD]"
 ---
 
 # 브리핑 생성
@@ -11,6 +11,8 @@ argument-hint: "[daily | weekly | weekly YYYY-MM-DD]"
 - 인수 없음 또는 `daily`: **일일 브리핑** (아래 "일일 브리핑 생성" 섹션)
 - `weekly`: **주간 요약 브리핑** (아래 "주간 요약 브리핑" 섹션). 직전 완결 주(월~일) 기준.
 - `weekly YYYY-MM-DD`: 해당 날짜가 속한 주의 주간 요약. 날짜는 해당 주의 월요일로 정렬됨.
+- `compare`: **브리핑 비교** (아래 "브리핑 비교" 섹션). 직전 2일(어제 vs 그제) 비교.
+- `compare YYYY-MM-DD YYYY-MM-DD`: 지정된 두 날짜의 브리핑 비교.
 
 ---
 
@@ -552,3 +554,78 @@ $PYTHON "$CHART_SCRIPT" \
 매주 자동으로 주간 요약을 받아보시겠어요?
 → /smart-briefing:schedule install-weekly [HH:MM] [요일]
 ```
+
+---
+
+# 브리핑 비교
+
+> `$ARGUMENTS`가 `compare` 또는 `compare YYYY-MM-DD YYYY-MM-DD`일 때 이 섹션을 실행합니다.
+
+두 날짜의 sidecar JSON을 비교하여 지표 변화를 분석합니다.
+
+## C1단계: 비교 대상 결정
+
+- `compare` (인수 없음): 어제 vs 그제 (가장 최근 2일)
+- `compare YYYY-MM-DD YYYY-MM-DD`: 지정된 두 날짜 비교. 첫 번째가 "이전", 두 번째가 "이후".
+
+## C2단계: sidecar 로드
+
+두 날짜의 `briefings/YYYY-MM-DD.json` sidecar 파일을 로드합니다.
+
+파일이 없는 경우:
+```
+{날짜} sidecar 파일을 찾을 수 없습니다: briefings/{날짜}.json
+먼저 해당 날짜의 브리핑을 생성해주세요: /smart-briefing:briefing daily
+```
+
+## C3단계: 지표 비교 분석
+
+두 sidecar의 `comparable_keys`를 합집합으로 비교 대상을 결정합니다.
+각 메트릭의 `current` 값을 비교하여 변화율을 계산합니다:
+
+```
+변화율 = ((이후 값 - 이전 값) / 이전 값) × 100
+```
+
+이전 값이 0이면 변화율을 "N/A"로 표시합니다.
+
+### 비교 항목
+- **주요 지표**: metrics의 모든 comparable_keys
+- **트래픽 소스**: top_sources 변화 (있는 경우)
+- **상위 페이지**: top_pages 변화 (있는 경우)
+- **이상 탐지**: 두 날짜의 anomalies 비교
+
+## C4단계: 비교 결과 출력
+
+```markdown
+# 브리핑 비교 - {이전 날짜} vs {이후 날짜}
+
+## 주요 지표 변화
+
+| 지표 | {이전 날짜} | {이후 날짜} | 변화율 |
+|------|-----------|-----------|--------|
+| 세션 | 6,680 | 7,500 | +12.3% ▲ |
+| 사용자 | 4,780 | 5,200 | +8.8% ▲ |
+| 이탈률 | 45.0% | 42.0% | -6.7% ▼ (개선) |
+| ... | ... | ... | ... |
+
+변화율 시각화:
+세션               +12.3%  ▲ ████████████
+사용자              +8.8%  ▲ █████████
+이탈률              -6.7%  ▼ ███████        ← 개선
+평균 세션 시간      +21.9%  ▲ ██████████████████████  ⚠️
+
+## 트래픽 소스 변화
+{두 날짜 모두 top_sources가 있으면 비교 테이블}
+
+## 이상 탐지 비교
+- {이전 날짜}: {N}건 — {메트릭 목록}
+- {이후 날짜}: {M}건 — {메트릭 목록}
+- 새로 발생: {새 이상 탐지 메트릭}
+- 해소됨: {해소된 메트릭}
+
+## 비교 요약
+{2~3문장으로 주요 변화 포인트 요약}
+```
+
+비교 결과는 터미널에만 출력하고 파일로 저장하지 않습니다.

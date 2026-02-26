@@ -1,13 +1,14 @@
 # Smart Daily Briefing
 
 GA4 데이터를 대화형으로 조회하고, 리포트를 저장하고, 일일 브리핑을 생성하는 AI 에이전트 플러그인입니다.
-**Claude Code**와 **OpenClaw** 두 플랫폼에서 모두 사용할 수 있습니다.
+**Claude Code**, **OpenClaw**, **Cowork(Claude Desktop)** 세 플랫폼에서 사용할 수 있습니다.
 
 ## 사전 요구사항
 
 - **공통**: Google Cloud 서비스 계정 JSON 파일, GA4 Property ID, `pipx`
 - **Claude Code**: Claude Code 1.0.33+
 - **OpenClaw**: OpenClaw 최신 버전
+- **Cowork**: Claude Desktop (Cowork 기능 포함)
 
 ## 설치
 
@@ -85,6 +86,14 @@ cp .mcp.json.example .mcp.json
 이번 주 세션 수 보여줘
 ```
 
+### Cowork (Claude Desktop)에서 설치
+
+> 상세 가이드: [docs/cowork-setup.md](docs/cowork-setup.md)
+
+1. 호스트 측 Claude Desktop에서 MCP 서버 등록 (`.mcp.json.example` 참고)
+2. Cowork에서 프로젝트 디렉토리 열기
+3. 첫 메시지: "COWORK.md 읽어줘"
+
 ---
 
 ## 사용 방법
@@ -100,18 +109,18 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 "어제 캠페인 성과 요약해줘"
 ```
 
-이 기능은 Claude Code와 OpenClaw 모두에서 동일하게 동작합니다.
+이 기능은 Claude Code, OpenClaw, Cowork 모두에서 동일하게 동작합니다.
 
 ### 커맨드 (Claude Code 전용)
 
 | 커맨드 | 설명 |
 |--------|------|
 | `/smart-briefing:setup` | 초기 설정 안내 (MCP 연결 확인, 헬스체크) |
-| `/smart-briefing:briefing` | GA4 브리핑 생성 (daily/weekly/compare/list) |
-| `/smart-briefing:customize` | 브리핑 개인화 설정 조회/변경 (알림 포함) |
+| `/smart-briefing:briefing` | GA4 브리핑 생성 (daily/weekly/compare/list/export) |
+| `/smart-briefing:customize` | 브리핑 개인화 설정 조회/변경 |
+| `/smart-briefing:notification` | 알림 관리 (test/status/flush/history/setup) |
 | `/smart-briefing:reports` | 저장된 리포트 목록 조회 |
 | `/smart-briefing:schedule` | 리포트 스케줄 조회/설정/실행 |
-| `/smart-briefing:export` | 브리핑 PDF 내보내기 |
 
 OpenClaw에서는 커맨드 대신 자연어로 동일한 기능을 사용합니다:
 - "브리핑 생성해줘" → 일일 브리핑 생성
@@ -124,9 +133,9 @@ OpenClaw에서는 커맨드 대신 자연어로 동일한 기능을 사용합니
 마크다운 브리핑을 차트 이미지가 포함된 PDF로 변환합니다:
 
 ```
-/smart-briefing:export latest        # 최신 브리핑을 PDF로
-/smart-briefing:export 2026-02-15    # 날짜 지정
-"이 브리핑 PDF로 만들어줘"            # 자연어
+/smart-briefing:briefing export latest      # 최신 브리핑을 PDF로
+/smart-briefing:briefing export 2026-02-15  # 날짜 지정
+"이 브리핑 PDF로 만들어줘"                    # 자연어
 ```
 
 브리핑 생성 시 PDF도 자동으로 함께 생성됩니다 (기본값). `config.json`에서 `export.auto_pdf`를 `false`로 설정하면 비활성화할 수 있습니다.
@@ -172,15 +181,15 @@ OpenClaw에서는 커맨드 대신 자연어로 동일한 기능을 사용합니
 
 ### 이상 탐지 알림
 
-브리핑 생성 시 이상 탐지 항목이 있으면 자동으로 Slack 알림을 전송합니다.
-쿨다운(기본 24시간), 일일 한도(기본 10건), 심각도 필터링이 적용됩니다.
+브리핑 생성 시 이상 탐지 항목이 있으면 활성화된 모든 채널(Slack/Telegram/Discord)로 알림을 전송합니다.
+쿨다운(기본 4시간), 일일 한도(기본 10건), 심각도 필터링이 적용됩니다.
 
 ```json
 {
   "notifications": {
     "anomaly_alerts": {
       "enabled": true,
-      "cooldown_hours": 24,
+      "cooldown_hours": 4,
       "max_alerts_per_day": 10,
       "min_severity": "warning"
     }
@@ -195,7 +204,7 @@ OpenClaw에서는 커맨드 대신 자연어로 동일한 기능을 사용합니
 /smart-briefing:setup healthcheck --json # JSON 형식 출력
 ```
 
-Python 환경, 필수 패키지, 폰트, Slack 연결 등 8개 항목을 점검합니다.
+Python 환경, 필수 패키지, 폰트, Slack/Telegram/Discord 연결, config 버전 등 11개 항목을 점검합니다.
 
 ### 자동 브리핑 스케줄
 
@@ -224,31 +233,45 @@ openclaw cron remove "GA4-daily-briefing"
 
 OpenClaw cron은 크로스 플랫폼(macOS/Linux/Windows)이며 자동 재시도(exponential backoff)를 지원합니다.
 
-### Slack 알림
+### 멀티채널 알림
 
-자동 브리핑 생성 후 Slack으로 요약을 받을 수 있습니다:
+자동 브리핑 생성 후 Slack, Telegram, Discord로 요약을 받을 수 있습니다.
 
-```
-"Slack webhook 등록해줘"
-```
-
-또는 `config.json`에 직접 설정:
+`config.json`에서 채널별 설정:
 
 ```json
 {
+  "version": "2.0",
   "notifications": {
     "slack": {
       "webhook_url": "https://hooks.slack.com/services/T.../B.../...",
+      "enabled": true
+    },
+    "telegram": {
+      "bot_token": "123456:ABC-DEF...",
+      "chat_id": "987654321",
+      "enabled": true
+    },
+    "discord": {
+      "webhook_url": "https://discord.com/api/webhooks/...",
       "enabled": true
     }
   }
 }
 ```
 
-Slack Incoming Webhook 생성:
-1. [Slack API](https://api.slack.com/messaging/webhooks) 접속
-2. Slack App 생성 → Incoming Webhooks 활성화
-3. Webhook URL 복사 후 등록
+알림 관리:
+```
+/smart-briefing:notification status    # 채널별 연결 상태
+/smart-briefing:notification test      # 테스트 메시지 전송
+/smart-briefing:notification setup telegram  # 채널별 설정 안내
+```
+
+v1.x config에서 업그레이드:
+```bash
+python3 scripts/migrate-config.py           # 자동 마이그레이션
+python3 scripts/migrate-config.py --dry-run # 변경 미리보기
+```
 
 ### 브리핑 개인화
 
@@ -284,19 +307,20 @@ smart-daily-briefing/
 │   ├── setup.md
 │   ├── briefing.md
 │   ├── customize.md
+│   ├── notification.md
 │   ├── reports.md
 │   ├── schedule.md
-│   └── export.md
+│   └── export.md              # deprecated → briefing export
 ├── scripts/
 │   ├── utils.py               # 공통 유틸리티 (폰트, atomic write 등)
 │   ├── sidecar_schema.py      # JSON sidecar 스키마 검증기
-│   ├── healthcheck.py         # 환경 진단 (헬스체크)
-│   ├── send-notification.py   # Python 통합 알림 시스템 (채널 추상화)
+│   ├── healthcheck.py         # 환경 진단 (11개 항목)
+│   ├── send-notification.py   # 멀티채널 알림 (Slack/Telegram/Discord)
 │   ├── anomaly-monitor.py     # 이상 탐지 모니터 (쿨다운/한도)
 │   ├── generate-charts.py     # 차트 이미지 생성 (matplotlib/SVG)
 │   ├── generate-pdf.py        # 브리핑 PDF 내보내기 (weasyprint)
 │   ├── manage-schedule.sh     # 자동 브리핑 스케줄 관리 (launchd/systemd)
-│   └── send-slack.sh          # Slack 웹훅 알림 (레거시, send-notification.py 권장)
+│   └── migrate-config.py      # config v1.x → v2.0 마이그레이션
 ├── hooks/
 │   ├── hooks.json             # 훅 설정 (SessionStart, PreToolUse)
 │   ├── inject-plugin-root.sh  # $SMART_BRIEFING_ROOT 환경변수 주입
@@ -308,16 +332,21 @@ smart-daily-briefing/
 │   ├── test_sidecar_schema.py
 │   ├── test_healthcheck.py
 │   ├── test_send_notification.py
+│   ├── test_telegram_channel.py
+│   ├── test_discord_channel.py
+│   ├── test_migrate_config.py
 │   └── test_anomaly_monitor.py
 ├── fonts/
 │   ├── NanumGothic-Regular.ttf # 번들 한국어 폰트 (컨테이너 환경용)
 │   └── OFL.txt                # SIL Open Font License
 ├── docs/
-│   └── openclaw-setup.md      # OpenClaw 설치/설정 가이드
+│   ├── openclaw-setup.md      # OpenClaw 설치/설정 가이드
+│   └── cowork-setup.md        # Cowork (Claude Desktop) 설정 가이드
 ├── config.json.example        # 브리핑 개인화 설정 템플릿
 ├── .mcp.json.example          # MCP 서버 설정 템플릿 (Claude Code)
 ├── openclaw.json.example      # MCP 서버 설정 템플릿 (OpenClaw)
-├── CLAUDE.md                  # 자동 로드 컨텍스트
+├── CLAUDE.md                  # 자동 로드 컨텍스트 (Claude Code)
+├── COWORK.md                  # 세션 부트스트랩 (Cowork)
 ├── reports/                   # 저장된 리포트 (.json)
 └── briefings/                 # 생성된 브리핑 (.md, .pdf, charts/)
 ```
@@ -326,18 +355,17 @@ smart-daily-briefing/
 
 ## 플랫폼별 기능 비교
 
-| 기능 | Claude Code | OpenClaw |
-|------|-------------|----------|
-| 자연어 GA4 조회 | O | O |
-| 일일 브리핑 생성 | O (슬래시 명령) | O (자연어) |
-| 브리핑 개인화 | O | O |
-| 리포트 저장/실행 | O | O |
-| 차트 이미지 생성 | O | O (Python 필요) |
-| PDF 내보내기 | O (weasyprint 필요) | O (weasyprint 필요) |
-| 자동 스케줄링 | macOS launchd / Linux systemd | OpenClaw cron (크로스 플랫폼) |
-| Slack 알림 | O (웹훅) | O (웹훅 또는 네이티브 채널) |
-| 멀티채널 알림 | - | Telegram, Discord 등 (향후) |
-| 슬래시 커맨드 | O | - |
+| 기능 | Claude Code | OpenClaw | Cowork |
+|------|:-----------:|:--------:|:------:|
+| 자연어 GA4 조회 | O | O | O |
+| 일일/주간 브리핑 | O (슬래시 명령) | O (자연어) | O (자연어) |
+| 브리핑 개인화 | O | O | O |
+| 리포트 저장/실행 | O | O | O |
+| 차트 이미지 생성 | O | O | △ (Python 필요) |
+| PDF 내보내기 | O | O | △ (weasyprint 필요) |
+| 자동 스케줄링 | launchd / systemd | OpenClaw cron | X (ephemeral) |
+| 멀티채널 알림 | O | O | △ (프록시 필요) |
+| 슬래시 커맨드 | O | - | - |
 
 ---
 

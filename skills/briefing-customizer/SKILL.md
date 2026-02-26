@@ -108,7 +108,7 @@ config.json이 손상되었습니다. 기본 설정을 기반으로 변경사항
    - `http://`이거나 유효하지 않으면 거부합니다
 3. `config.json`의 `notifications.slack.webhook_url`에 저장합니다
 4. `notifications.slack.enabled`를 `true`로 설정합니다
-5. Bash 도구로 테스트 메시지를 전송합니다: `bash scripts/send-slack.sh test`
+5. Bash 도구로 테스트 메시지를 전송합니다: `python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" test`
 
 사용자가 알림을 끄겠다고 하면:
 - `config.json`의 `notifications.slack.enabled`를 `false`로 설정합니다

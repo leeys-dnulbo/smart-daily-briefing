@@ -1,6 +1,5 @@
 """tests/test_send_notification.py — scripts/send-notification.py 테스트"""
 
-import importlib.util
 import json
 import os
 import sys
@@ -9,19 +8,15 @@ import urllib.request
 
 import pytest
 
-# 파일명에 하이픈이 있어서 importlib로 로드
-_spec = importlib.util.spec_from_file_location(
-    "send_notification",
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "send-notification.py"),
-)
-send_notification = importlib.util.module_from_spec(_spec)
-sys.modules["send_notification"] = send_notification
-_spec.loader.exec_module(send_notification)
+# conftest.py에서 단일 모듈 객체로 로드됨
+import send_notification
 
 from send_notification import (
     CHANNELS,
     MAX_FLUSH_RETRIES,
     SlackChannel,
+    TelegramChannel,
+    DiscordChannel,
     NotificationChannel,
     _extract_section,
     _truncate,
@@ -42,22 +37,7 @@ from send_notification import (
 
 
 # ---------- fixtures ----------
-
-
-@pytest.fixture
-def tmp_plugin_dir(tmp_path, monkeypatch):
-    """임시 플러그인 디렉토리를 생성하고 모듈 전역 변수를 패치."""
-    briefings_dir = tmp_path / "briefings"
-    briefings_dir.mkdir()
-    config_path = tmp_path / "config.json"
-
-    import send_notification as mod
-
-    monkeypatch.setattr(mod, "PLUGIN_DIR", str(tmp_path))
-    monkeypatch.setattr(mod, "CONFIG_PATH", str(config_path))
-    monkeypatch.setattr(mod, "QUEUE_PATH", str(briefings_dir / "notification-queue.json"))
-    monkeypatch.setattr(mod, "LOG_PATH", str(briefings_dir / "schedule.log"))
-    return tmp_path
+# tmp_plugin_dir는 conftest.py에서 공유 fixture로 정의됨
 
 
 @pytest.fixture
@@ -212,7 +192,7 @@ class TestUtilities:
     def test_truncate_long(self):
         long_text = "x" * 3000
         result = _truncate(long_text)
-        assert len(result) < 3000
+        assert len(result) <= 2800  # 기본 limit 이내로 잘림
         assert result.endswith("...")
 
 
@@ -311,14 +291,27 @@ class TestQueue:
         # 가장 오래된 것이 제거됨
         assert queue[0]["payload"]["n"] == 2
 
+    def test_enqueue_records_channel_name(self, tmp_plugin_dir):
+        enqueue("test", {"text": "hello"}, "telegram")
+        import send_notification as mod
+        with open(mod.QUEUE_PATH, encoding="utf-8") as f:
+            queue = json.load(f)
+        assert queue[0]["channel"] == "telegram"
+
+    def test_enqueue_default_channel_all(self, tmp_plugin_dir):
+        enqueue("test", {"text": "hello"})
+        import send_notification as mod
+        with open(mod.QUEUE_PATH, encoding="utf-8") as f:
+            queue = json.load(f)
+        assert queue[0]["channel"] == "all"
+
     def test_flush_empty_queue(self, tmp_plugin_dir, slack_config):
-        ch = SlackChannel()
-        sent, failed = flush_queue(ch, slack_config)
+        sent, failed = flush_queue(slack_config)
         assert sent == 0
         assert failed == 0
 
     def test_flush_sends_queued_messages(self, tmp_plugin_dir, slack_config, monkeypatch):
-        enqueue("test", {"text": "queued"})
+        enqueue("test", {"text": "queued"}, "slack")
 
         class MockResp:
             status = 200
@@ -326,20 +319,18 @@ class TestQueue:
             def __exit__(self, *a): pass
 
         monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: MockResp())
-        ch = SlackChannel()
-        sent, failed = flush_queue(ch, slack_config)
+        sent, failed = flush_queue(slack_config)
         assert sent == 1
         assert failed == 0
 
     def test_flush_keeps_failed(self, tmp_plugin_dir, slack_config, monkeypatch):
-        enqueue("test", {"text": "will fail"})
+        enqueue("test", {"text": "will fail"}, "slack")
 
         def raise_error(*a, **kw):
             raise urllib.error.URLError("fail")
 
         monkeypatch.setattr(urllib.request, "urlopen", raise_error)
-        ch = SlackChannel()
-        sent, failed = flush_queue(ch, slack_config)
+        sent, failed = flush_queue(slack_config)
         assert sent == 0
         assert failed == 1
         # 큐 파일에 여전히 남아있어야 함
@@ -556,13 +547,12 @@ class TestFlushMaxRetries:
         import send_notification as mod
 
         # 직접 큐 파일에 MAX_FLUSH_RETRIES 이상인 항목 작성
-        queue = [{"type": "test", "payload": {"text": "old"}, "retries": MAX_FLUSH_RETRIES + 1}]
+        queue = [{"type": "test", "payload": {"text": "old"}, "channel": "slack", "retries": MAX_FLUSH_RETRIES + 1}]
         queue_path = mod.QUEUE_PATH
         with open(queue_path, "w", encoding="utf-8") as f:
             json.dump(queue, f)
 
-        ch = SlackChannel()
-        sent, failed = flush_queue(ch, slack_config)
+        sent, failed = flush_queue(slack_config)
         assert sent == 0
         assert failed == 0  # dropped, not failed
 
@@ -695,7 +685,137 @@ class TestQueueCorruption:
         import send_notification as mod
         with open(mod.QUEUE_PATH, "w", encoding="utf-8") as f:
             json.dump({"corrupt": True}, f)
-        ch = SlackChannel()
-        sent, failed = flush_queue(ch, slack_config)
+        sent, failed = flush_queue(slack_config)
         assert sent == 0
         assert failed == 0
+
+
+# ---------- 채널 레지스트리 ----------
+
+
+class TestChannelRegistry:
+    def test_all_channels_registered(self):
+        assert "slack" in CHANNELS
+        assert "telegram" in CHANNELS
+        assert "discord" in CHANNELS
+        assert len(CHANNELS) == 3
+
+    def test_channel_names_match_keys(self):
+        for key, ch in CHANNELS.items():
+            assert ch.name == key
+
+
+# ---------- 멀티채널 라우팅 ----------
+
+
+class TestMultiChannelRouting:
+    @pytest.fixture
+    def multi_config(self, tmp_plugin_dir):
+        config = {
+            "notifications": {
+                "slack": {"webhook_url": "https://hooks.slack.com/services/T/B/x", "enabled": True},
+                "telegram": {"bot_token": "123:ABC", "chat_id": "-100", "enabled": True},
+                "discord": {"webhook_url": "https://discord.com/api/webhooks/1/x", "enabled": True},
+            }
+        }
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        return config
+
+    def test_get_active_channels_all(self, multi_config):
+        channels = get_active_channels(multi_config)
+        assert len(channels) == 3
+        names = {ch.name for ch in channels}
+        assert names == {"slack", "telegram", "discord"}
+
+    def test_get_active_channels_partial(self, tmp_plugin_dir):
+        config = {
+            "notifications": {
+                "slack": {"webhook_url": "https://hooks.slack.com/services/T/B/x", "enabled": True},
+                "telegram": {"bot_token": "", "chat_id": "", "enabled": False},
+            }
+        }
+        channels = get_active_channels(config)
+        assert len(channels) == 1
+        assert channels[0].name == "slack"
+
+    def test_get_active_channels_none(self):
+        channels = get_active_channels({})
+        assert len(channels) == 0
+
+    def test_channel_status_shows_all_channels(self, tmp_plugin_dir):
+        statuses = get_channel_status({})
+        assert "slack" in statuses
+        assert "telegram" in statuses
+        assert "discord" in statuses
+
+    def test_action_test_multi_channel(self, tmp_plugin_dir, multi_config, monkeypatch):
+        class MockResp:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+            def read(self): return b'{"ok":true}'
+
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: MockResp())
+        result = action_test(multi_config)
+        assert result == 0
+
+    def test_action_briefing_multi_channel(self, tmp_plugin_dir, multi_config, monkeypatch):
+        briefings_dir = tmp_plugin_dir / "briefings"
+        (briefings_dir / "2026-02-26.md").write_text(
+            "## 핵심 요약\n테스트 내용\n## 주요 지표\n지표 내용", encoding="utf-8"
+        )
+
+        class MockResp:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+            def read(self): return b'{"ok":true}'
+
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: MockResp())
+        result = action_briefing(multi_config, "2026-02-26")
+        assert result == 0
+
+    def test_enqueue_with_channel_and_flush(self, tmp_plugin_dir, slack_config, monkeypatch):
+        # slack 채널로 enqueue
+        enqueue("test", {"text": "for slack"}, "slack")
+        import send_notification as mod
+        with open(mod.QUEUE_PATH, encoding="utf-8") as f:
+            queue = json.load(f)
+        assert queue[0]["channel"] == "slack"
+
+        # flush
+        class MockResp:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: MockResp())
+        sent, failed = flush_queue(slack_config)
+        assert sent == 1
+        assert failed == 0
+
+    def test_flush_v1_12_queue_compat(self, tmp_plugin_dir, slack_config, monkeypatch):
+        """v1.12 큐 (channel 필드 없음)는 기본값 slack으로 처리."""
+        import send_notification as mod
+        queue = [{"type": "test", "payload": {"text": "old"}, "timestamp": "2026-02-26T00:00:00", "retries": 0}]
+        with open(mod.QUEUE_PATH, "w", encoding="utf-8") as f:
+            json.dump(queue, f)
+
+        class MockResp:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: MockResp())
+        sent, failed = flush_queue(slack_config)
+        assert sent == 1
+        assert failed == 0
+
+    def test_flush_unknown_channel_dropped(self, tmp_plugin_dir, slack_config):
+        import send_notification as mod
+        queue = [{"type": "test", "payload": {"text": "x"}, "channel": "line", "retries": 0}]
+        with open(mod.QUEUE_PATH, "w", encoding="utf-8") as f:
+            json.dump(queue, f)
+        sent, failed = flush_queue(slack_config)
+        assert sent == 0
+        assert failed == 0  # dropped, not re-queued

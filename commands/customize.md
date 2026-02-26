@@ -1,6 +1,6 @@
 ---
-description: 브리핑 개인화 설정을 조회하거나 변경합니다. 프리셋 적용, 섹션 on/off, 임계값 변경, 알림 설정 등을 지원합니다.
-argument-hint: [show | preset 이름 | reset | notification test | notification status | notification flush]
+description: 브리핑 개인화 설정을 조회하거나 변경합니다. 프리셋 적용, 섹션 on/off, 임계값 변경을 지원합니다.
+argument-hint: [show | preset 이름 | reset]
 ---
 
 # 브리핑 개인화 설정
@@ -39,9 +39,8 @@ config.json이 손상되었습니다. 기본 설정으로 표시합니다.
 ❌ 캠페인 성과
 ...
 
-알림:
-{notifications.slack.webhook_url이 있으면: "Slack 알림: 활성화됨" 또는 "비활성화됨"}
-{없으면: "Slack 알림: 미설정 (\"Slack webhook 등록해줘\"로 설정)"}
+알림: (상세: /smart-briefing:notification status)
+{각 채널별: "Slack/Telegram/Discord 알림: 활성화됨/비활성화됨/미설정"}
 
 사용 가능한 프리셋: default, behavior, traffic, campaign, content
 변경: /smart-briefing:customize preset {이름}
@@ -84,44 +83,19 @@ config.json이 손상되었습니다. 기본 설정으로 표시합니다.
 config.json이 삭제되었습니다. 기본 프리셋(default)으로 동작합니다.
 ```
 
-### 인수가 "notification test"인 경우
+### 인수가 "notification"으로 시작하는 경우
 
-알림 채널 연결을 테스트합니다. `scripts/send-notification.py test`를 실행합니다.
+> v2.0부터 알림 관련 기능은 `/smart-briefing:notification` 커맨드로 분리되었습니다.
 
-```bash
-python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" test
+안내 메시지를 출력한 뒤, 해당 기능을 실행합니다:
+```
+[안내] 알림 관련 기능이 /smart-briefing:notification 커맨드로 분리되었습니다.
+다음부터: /smart-briefing:notification {서브커맨드}
 ```
 
-성공 시:
-```
-[slack] 테스트 메시지 전송 성공
-```
-
-### 인수가 "notification status"인 경우
-
-알림 채널 상태와 큐 대기 메시지를 확인합니다.
-
-```bash
-python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" status
-```
-
-출력 예시:
-```
-알림 채널 상태:
-  [slack] 활성
-
-대기 중인 메시지: 없음
-```
-
-### 인수가 "notification flush"인 경우
-
-전송 실패로 큐에 쌓인 메시지를 재전송합니다.
-
-```bash
-python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" flush
-```
-
-출력 예시:
-```
-플러시 완료: 2건 전송, 0건 실패
-```
+그리고 요청된 동작을 그대로 실행합니다:
+- `notification test` → `python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" test`
+- `notification status` → `python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" status`
+- `notification flush` → `python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" flush`
+- `notification history` → `python3 "${SMART_BRIEFING_ROOT}/scripts/anomaly-monitor.py" history`
+- `notification setup {채널}` → `/smart-briefing:notification setup {채널}` 안내

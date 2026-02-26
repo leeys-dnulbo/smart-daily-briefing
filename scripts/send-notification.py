@@ -2,7 +2,8 @@
 """
 Smart Daily Briefing - Python 통합 알림 시스템
 
-v1.12.0에서 도입. send-slack.sh를 대체하는 순수 Python 구현.
+v1.12.0에서 도입. v2.0.0에서 멀티채널(Slack/Telegram/Discord) 지원.
+v2.0.0에서 Telegram/Discord 멀티채널 지원 추가.
 외부 의존성 없음 (urllib.request 사용).
 
 Usage:
@@ -103,6 +104,16 @@ class NotificationChannel:
         raise NotImplementedError
 
 
+# 브리핑 섹션 목록 (heading, label) — 3채널 공통
+BRIEFING_SECTIONS = [
+    ("핵심 요약", "핵심 요약"),
+    ("주요 지표", "주요 지표"),
+    ("이상 탐지", "이상 탐지"),
+    ("인사이트", "인사이트"),
+    ("액션 아이템", "액션 아이템"),
+]
+
+
 class SlackChannel(NotificationChannel):
     """Slack Incoming Webhook 채널."""
     name = "slack"
@@ -152,14 +163,7 @@ class SlackChannel(NotificationChannel):
             }
         ]
 
-        sections = [
-            ("핵심 요약", "핵심 요약"),
-            ("주요 지표", "주요 지표"),
-            ("이상 탐지", "이상 탐지"),
-            ("인사이트", "인사이트"),
-            ("액션 아이템", "액션 아이템"),
-        ]
-        for heading, label in sections:
+        for heading, label in BRIEFING_SECTIONS:
             text = _extract_section(content, heading)
             if text:
                 blocks.append({"type": "divider"})
@@ -182,6 +186,8 @@ class SlackChannel(NotificationChannel):
             return None
         lines = [":warning: *이상 탐지 알림*", ""]
         for a in anomalies:
+            if not isinstance(a, dict):
+                continue
             metric = a.get("metric", "?")
             change = a.get("change_pct", 0)
             try:
@@ -192,10 +198,185 @@ class SlackChannel(NotificationChannel):
             icon = ":rotating_light:" if severity == "critical" else ":warning:"
             direction = "+" if change > 0 else ""
             lines.append(f"{icon} *{metric}*: {direction}{change:.1f}% ({severity})")
+        text = "\n".join(lines)
+        # Slack section block mrkdwn 3000자 제한
+        if len(text) > 3000:
+            text = text[:2996] + "\n..."
         return {
             "blocks": [{
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": "\n".join(lines)},
+                "text": {"type": "mrkdwn", "text": text},
+            }]
+        }
+
+
+class TelegramChannel(NotificationChannel):
+    """Telegram Bot API 채널. bot_token + chat_id 기반."""
+    name = "telegram"
+
+    def is_configured(self, config):
+        tg = config.get("notifications", {}).get("telegram", {})
+        return (
+            bool(tg.get("bot_token"))
+            and bool(tg.get("chat_id"))
+            and tg.get("enabled", True)
+        )
+
+    def send(self, payload, config):
+        tg = config.get("notifications", {}).get("telegram", {})
+        token = tg.get("bot_token", "")
+        chat_id = tg.get("chat_id", "")
+        if not token or not chat_id:
+            return False
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        send_payload = {**payload, "chat_id": chat_id}
+        data = json.dumps(send_payload, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = json.loads(resp.read())
+                return result.get("ok", False)
+        except (urllib.error.URLError, OSError, json.JSONDecodeError):
+            return False
+
+    def build_test_payload(self):
+        return {
+            "text": "Smart Daily Briefing 알림이 정상적으로 설정되었습니다.",
+            "parse_mode": "HTML",
+        }
+
+    def build_briefing_payload(self, date, content):
+        parts = [f"<b>GA 일일 브리핑 - {date}</b>"]
+        for heading, label in BRIEFING_SECTIONS:
+            text = _extract_section(content, heading)
+            if text:
+                # HTML 특수문자 이스케이프
+                safe_text = _html_escape(text)
+                parts.append(f"\n<b>{label}</b>\n{_truncate(safe_text, 800)}")
+
+        msg = "\n".join(parts)
+        # Telegram 메시지 4096자 제한 — HTML 태그/엔티티 중간 절단 방지
+        if len(msg) > 4096:
+            cut = msg[:4090]
+            # 열린 HTML 엔티티(&amp; 등) 절단 방지
+            amp_pos = cut.rfind("&")
+            if amp_pos != -1 and ";" not in cut[amp_pos:]:
+                cut = cut[:amp_pos]
+            # 열린 HTML 태그 절단 방지
+            lt_pos = cut.rfind("<")
+            if lt_pos != -1 and ">" not in cut[lt_pos:]:
+                cut = cut[:lt_pos]
+            msg = cut + "\n..."
+        return {"text": msg, "parse_mode": "HTML"}
+
+    def build_anomaly_payload(self, anomalies):
+        if not anomalies:
+            return None
+        lines = ["<b>이상 탐지 알림</b>", ""]
+        for a in anomalies:
+            if not isinstance(a, dict):
+                continue
+            metric = _html_escape(str(a.get("metric", "?")))
+            change = a.get("change_pct", 0)
+            try:
+                change = float(change)
+            except (TypeError, ValueError):
+                change = 0.0
+            severity = _html_escape(str(a.get("severity", "warning")))
+            icon = "\U0001f6a8" if severity == "critical" else "\u26a0\ufe0f"
+            direction = "+" if change > 0 else ""
+            lines.append(f"{icon} <b>{metric}</b>: {direction}{change:.1f}% ({severity})")
+        msg = "\n".join(lines)
+        if len(msg) > 4096:
+            msg = msg[:4090] + "\n..."
+        return {"text": msg, "parse_mode": "HTML"}
+
+
+class DiscordChannel(NotificationChannel):
+    """Discord Webhook 채널. embed 형식 사용."""
+    name = "discord"
+
+    def is_configured(self, config):
+        dc = config.get("notifications", {}).get("discord", {})
+        url = dc.get("webhook_url", "")
+        return bool(url) and url.startswith("https://") and dc.get("enabled", True)
+
+    def send(self, payload, config):
+        url = config.get("notifications", {}).get("discord", {}).get("webhook_url", "")
+        if not url or not url.startswith("https://"):
+            return False
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                # Discord webhook 성공 시 200 또는 204 반환
+                return resp.status in (200, 204)
+        except (urllib.error.URLError, OSError):
+            return False
+
+    def build_test_payload(self):
+        return {
+            "embeds": [{
+                "title": "Smart Daily Briefing",
+                "description": "알림이 정상적으로 설정되었습니다.",
+                "color": 0x2ECC71,
+            }]
+        }
+
+    def build_briefing_payload(self, date, content):
+        fields = []
+        for heading, label in BRIEFING_SECTIONS:
+            text = _extract_section(content, heading)
+            if text:
+                fields.append({
+                    "name": label,
+                    "value": _truncate(text, 1024),
+                    "inline": False,
+                })
+        return {
+            "embeds": [{
+                "title": f"GA 일일 브리핑 - {date}",
+                "color": 0x3498DB,
+                "fields": fields,
+            }]
+        }
+
+    def build_anomaly_payload(self, anomalies):
+        if not anomalies:
+            return None
+        lines = []
+        for a in anomalies:
+            if not isinstance(a, dict):
+                continue
+            metric = a.get("metric", "?")
+            change = a.get("change_pct", 0)
+            try:
+                change = float(change)
+            except (TypeError, ValueError):
+                change = 0.0
+            severity = a.get("severity", "warning")
+            icon = "\U0001f6a8" if severity == "critical" else "\u26a0\ufe0f"
+            direction = "+" if change > 0 else ""
+            lines.append(f"{icon} **{metric}**: {direction}{change:.1f}% ({severity})")
+        desc = "\n".join(lines)
+        # Discord embed description 4096자 제한
+        if len(desc) > 4096:
+            desc = desc[:4092] + "\n..."
+        return {
+            "embeds": [{
+                "title": "이상 탐지 알림",
+                "description": desc,
+                "color": 0xE74C3C,
             }]
         }
 
@@ -212,9 +393,15 @@ def _extract_section(md, heading):
 
 
 def _truncate(text, limit=2800):
+    suffix = "\n..."
     if len(text) > limit:
-        return text[:limit] + "\n..."
+        return text[:limit - len(suffix)] + suffix
     return text
+
+
+def _html_escape(text):
+    """Telegram HTML 파싱에 필요한 최소 이스케이프."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +422,7 @@ def send_with_retry(channel, payload, config, max_retries=MAX_RETRIES):
     return False
 
 
-def enqueue(msg_type, payload):
+def enqueue(msg_type, payload, channel_name="all"):
     """실패한 메시지를 큐에 저장."""
     queue = []
     if os.path.exists(QUEUE_PATH):
@@ -250,6 +437,7 @@ def enqueue(msg_type, payload):
     entry = {
         "type": msg_type,
         "payload": payload,
+        "channel": channel_name,
         "timestamp": datetime.now().isoformat(),
         "retries": 0,
     }
@@ -280,8 +468,8 @@ def enqueue(msg_type, payload):
                 pass
 
 
-def flush_queue(channel, config):
-    """큐에 쌓인 메시지를 재전송."""
+def flush_queue(config):
+    """큐에 쌓인 메시지를 재전송. 채널별로 라우팅."""
     if not os.path.exists(QUEUE_PATH):
         return 0, 0
 
@@ -301,12 +489,31 @@ def flush_queue(channel, config):
     for entry in queue:
         retries = entry.get("retries", 0)
         if retries >= MAX_FLUSH_RETRIES:
-            log(f"Dropping message after {retries} retries (type={entry.get('type', '?')})", channel.name)
+            log(f"Dropping message after {retries} retries (type={entry.get('type', '?')})")
             continue
+
         payload = entry.get("payload", {})
-        if channel.send(payload, config):
+        # v1.12 큐 호환: channel 필드 없으면 "slack" 기본값
+        channel_name = entry.get("channel", "slack")
+
+        # 대상 채널 결정
+        if channel_name == "all":
+            targets = get_active_channels(config)
+        elif channel_name in CHANNELS:
+            ch = CHANNELS[channel_name]
+            targets = [ch] if ch.is_configured(config) else []
+        else:
+            log(f"Unknown channel in queue: {channel_name}, dropping")
+            continue
+
+        entry_sent = False
+        for ch in targets:
+            if ch.send(payload, config):
+                entry_sent = True
+                log(f"Flushed queued message (type={entry.get('type', '?')})", ch.name)
+
+        if entry_sent:
             sent += 1
-            log(f"Flushed queued message (type={entry.get('type', '?')})", channel.name)
         else:
             entry["retries"] = retries + 1
             failed.append(entry)
@@ -321,7 +528,7 @@ def flush_queue(channel, config):
         os.replace(tmp, QUEUE_PATH)
         tmp = None
     except OSError as e:
-        log(f"Failed to update queue file after flush: {e}", channel.name)
+        log(f"Failed to update queue file after flush: {e}")
     finally:
         if tmp and os.path.exists(tmp):
             try:
@@ -336,9 +543,11 @@ def flush_queue(channel, config):
 # NotificationRouter
 # ---------------------------------------------------------------------------
 
-# 채널 레지스트리: v2.0.0에서 Telegram/Discord 추가
+# 채널 레지스트리
 CHANNELS = {
     "slack": SlackChannel(),
+    "telegram": TelegramChannel(),
+    "discord": DiscordChannel(),
 }
 
 
@@ -361,7 +570,8 @@ def get_channel_status(config):
     if os.path.exists(QUEUE_PATH):
         try:
             with open(QUEUE_PATH, encoding="utf-8") as f:
-                queue_size = len(json.load(f))
+                data = json.load(f)
+                queue_size = len(data) if isinstance(data, list) else 0
         except (json.JSONDecodeError, OSError, TypeError):
             pass
     statuses["_queue"] = {"pending": queue_size}
@@ -372,12 +582,22 @@ def get_channel_status(config):
 # CLI 액션
 # ---------------------------------------------------------------------------
 
-def action_test(config):
-    """테스트 메시지 전송."""
-    channels = get_active_channels(config)
-    if not channels:
-        print("설정된 알림 채널이 없습니다.", file=sys.stderr)
-        return 2
+def action_test(config, target_channel=None):
+    """테스트 메시지 전송. target_channel이 지정되면 해당 채널만 테스트."""
+    if target_channel:
+        if target_channel not in CHANNELS:
+            print(f"알 수 없는 채널: {target_channel} (사용 가능: {', '.join(CHANNELS.keys())})", file=sys.stderr)
+            return 2
+        ch = CHANNELS[target_channel]
+        if not ch.is_configured(config):
+            print(f"[{target_channel}] 채널이 설정되지 않았습니다.", file=sys.stderr)
+            return 2
+        channels = [ch]
+    else:
+        channels = get_active_channels(config)
+        if not channels:
+            print("설정된 알림 채널이 없습니다.", file=sys.stderr)
+            return 2
 
     ok = True
     for ch in channels:
@@ -420,8 +640,7 @@ def action_briefing(config, date=None):
         return 0
 
     # 먼저 큐 플러시
-    for ch in channels:
-        flush_queue(ch, config)
+    flush_queue(config)
 
     ok = True
     for ch in channels:
@@ -429,7 +648,7 @@ def action_briefing(config, date=None):
         if send_with_retry(ch, payload, config):
             log(f"Briefing notification sent ({date}).", ch.name)
         else:
-            enqueue("briefing", payload)
+            enqueue("briefing", payload, ch.name)
             log(f"Briefing notification failed. Queued.", ch.name)
             ok = False
     return 0 if ok else 1
@@ -462,7 +681,7 @@ def action_anomaly(config, anomalies_json):
         if send_with_retry(ch, payload, config):
             log(f"Anomaly alert sent ({len(anomalies)} items).", ch.name)
         else:
-            enqueue("anomaly", payload)
+            enqueue("anomaly", payload, ch.name)
             log(f"Anomaly alert failed. Queued.", ch.name)
             ok = False
     return 0 if ok else 1
@@ -475,15 +694,9 @@ def action_flush(config):
         print("설정된 알림 채널이 없습니다.", file=sys.stderr)
         return 2
 
-    total_sent = 0
-    total_failed = 0
-    for ch in channels:
-        sent, failed = flush_queue(ch, config)
-        total_sent += sent
-        total_failed += failed
-
-    print(f"플러시 완료: {total_sent}건 전송, {total_failed}건 실패")
-    return 0 if total_failed == 0 else 1
+    sent, failed = flush_queue(config)
+    print(f"플러시 완료: {sent}건 전송, {failed}건 실패")
+    return 0 if failed == 0 else 1
 
 
 def action_status(config):
@@ -517,7 +730,8 @@ def main():
     config = load_config()
 
     if action == "test":
-        return action_test(config)
+        target = sys.argv[2] if len(sys.argv) > 2 else None
+        return action_test(config, target)
     elif action == "briefing":
         date = sys.argv[2] if len(sys.argv) > 2 else None
         return action_briefing(config, date)

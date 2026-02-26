@@ -99,13 +99,15 @@ Claude Code와 OpenClaw 두 플랫폼에서 모두 사용 가능.
 - [x] 테스트 프레임워크 (pytest 기반 테스트 스위트: utils + AST 검증)
 - [x] OpenClaw 강화 (openclaw.json.example 환경변수/채널/타임존, setup docs 트러블슈팅)
 
-### 추가 기능 (향후)
-- [ ] 주간 요약 브리핑 (`/smart-briefing:briefing weekly`) — v1.11.0
-- [ ] 브리핑 비교 (briefing sub-option, JSON sidecar 기반) — v1.11.0
-- [ ] Python 알림 시스템 (send-notification.py, 이상 탐지 즉시 알림) — v1.12.0
-- [ ] 헬스체크 스킬/커맨드 (health-checker) — v2.0.0
-- [ ] 멀티채널 알림 (Telegram, Discord) — v2.0.0
-- [ ] 커맨드 계층화 (8개 flat → 그룹화) — v2.0.0
+### 추가 기능 (구현 완료)
+- [x] 주간 요약 브리핑 (`/smart-briefing:briefing weekly`) — v1.11.0
+- [x] 브리핑 비교 (briefing sub-option, JSON sidecar 기반) — v1.11.0
+- [x] Python 알림 시스템 (send-notification.py, 이상 탐지 즉시 알림) — v1.12.0
+- [x] 헬스체크 스킬/커맨드 (health-checker) — v2.0.0
+- [x] 멀티채널 알림 (Telegram, Discord) — v2.0.0
+- [x] 커맨드 계층화 (notification 분리, export 흡수) — v2.0.0
+
+### 향후 계획
 - [ ] 멀티 Property 지원 (여러 GA4 속성 동시 관리)
 - [ ] ClawHub 마켓플레이스 등록
 

@@ -1,6 +1,6 @@
 ---
 description: Smart Briefing 초기 설정을 안내합니다. GA4 MCP 서버 연결 상태를 확인하고, 필요 시 사용자로부터 정보를 입력받아 .mcp.json을 생성합니다. 환경 진단(헬스체크)도 지원합니다.
-argument-hint: [healthcheck | healthcheck --json | healthcheck --check 항목]
+argument-hint: [health | healthcheck | healthcheck --json | healthcheck --check 항목]
 ---
 
 # Smart Briefing 초기 설정
@@ -13,7 +13,7 @@ $ARGUMENTS
 
 ### 인수가 없는 경우 → "1단계"부터 시작
 
-### 인수가 "healthcheck"인 경우
+### 인수가 "health" 또는 "healthcheck"인 경우
 
 환경 진단(헬스체크)을 실행합니다.
 
@@ -36,6 +36,9 @@ $ARGUMENTS
    - `matplotlib`: "`pip install matplotlib` 로 설치하세요"
    - `weasyprint`: "`pip install weasyprint markdown` 로 설치하세요"
    - `slack`: "config.json의 notifications.slack.webhook_url을 설정하세요"
+   - `telegram`: "config.json의 notifications.telegram에 bot_token과 chat_id를 설정하세요. `/smart-briefing:notification setup telegram`으로 안내받을 수 있습니다"
+   - `discord`: "config.json의 notifications.discord.webhook_url을 설정하세요. `/smart-briefing:notification setup discord`로 안내받을 수 있습니다"
+   - `config_version`: "`python3 scripts/migrate-config.py` 를 실행하여 v2.0으로 마이그레이션하세요"
    - `sidecar`: "`/smart-briefing:briefing` 으로 브리핑을 생성하면 자동으로 sidecar가 저장됩니다"
    - `font`: "fonts/ 디렉토리에 NanumGothic-Regular.ttf가 있는지 확인하세요"
    - `scripts`: "누락된 스크립트 파일을 확인하세요"

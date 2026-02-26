@@ -1,7 +1,9 @@
 # Smart Daily Briefing
 
 GA4 데이터를 대화형으로 분석하는 AI 에이전트 플러그인입니다.
-Claude Code와 OpenClaw 두 플랫폼에서 모두 사용할 수 있습니다.
+Claude Code, OpenClaw, Cowork(Claude Desktop) 세 플랫폼에서 사용할 수 있습니다.
+
+> **Cowork 사용자**: `COWORK.md`를 참고하세요. Cowork 환경 전용 부트스트랩 파일입니다.
 
 ## 플러그인 상태 확인
 
@@ -29,11 +31,12 @@ OpenClaw 사용자는 docs/openclaw-setup.md를 참고하세요.
 - OpenClaw 스케줄 관리 (schedule-helper)
 
 ### 커맨드 (Claude Code 전용)
-- `/smart-briefing:briefing` - 브리핑 생성 (daily/weekly/compare/list)
-- `/smart-briefing:customize` - 브리핑 설정 조회/변경 (알림 포함)
+- `/smart-briefing:briefing` - 브리핑 생성 (daily/weekly/compare/list/export)
+- `/smart-briefing:customize` - 브리핑 설정 조회/변경
+- `/smart-briefing:notification` - 알림 관리 (test/status/flush/history/setup)
 - `/smart-briefing:reports` - 저장된 리포트 목록
 - `/smart-briefing:schedule` - 스케줄 관리 (일간/주간)
-- `/smart-briefing:export` - 브리핑 PDF 내보내기
+- `/smart-briefing:export` - (deprecated → briefing export로 이동)
 - `/smart-briefing:setup` - 초기 설정 안내 + 환경 진단 (healthcheck)
 
 ## 파일 저장 위치
@@ -44,6 +47,8 @@ OpenClaw 사용자는 docs/openclaw-setup.md를 참고하세요.
 - 브리핑 sidecar: `briefings/YYYY-MM-DD.json` (구조화 데이터)
 - 차트: `briefings/charts/YYYY-MM-DD/` (PNG/SVG)
 - 주간 차트: `briefings/charts/weekly-YYYY-MM-DD/`
+- 알림 큐: `briefings/notification-queue.json`
+- 알림 이력: `briefings/.alert-history.json`
 - 개인화 설정: `config.json`
 
 ## 응답 언어
@@ -64,7 +69,8 @@ SessionStart 훅이 `$SMART_BRIEFING_ROOT` 환경변수를 자동 설정합니�
 모든 스크립트는 이 변수를 기준으로 참조하세요:
 
 ```bash
-# $SMART_BRIEFING_ROOT는 SessionStart 훅이 자동 설정
+# $SMART_BRIEFING_ROOT는 SessionStart 훅이 자동 설정 (Claude Code)
+# Cowork에서는 프로젝트 루트 디렉토리의 절대경로를 직접 사용
 CHART_SCRIPT="${SMART_BRIEFING_ROOT}/scripts/generate-charts.py"
 python3 "$CHART_SCRIPT" \
   --input briefings/charts/{날짜}/data.json \

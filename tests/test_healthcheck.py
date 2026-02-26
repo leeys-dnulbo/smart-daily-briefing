@@ -13,6 +13,8 @@ from healthcheck import (
     ALL_CHECKS,
     CHECK_MAP,
     ConfigCheck,
+    ConfigVersionCheck,
+    DiscordCheck,
     FontCheck,
     HealthCheckItem,
     MatplotlibCheck,
@@ -20,6 +22,7 @@ from healthcheck import (
     ScriptsCheck,
     SidecarCheck,
     SlackCheck,
+    TelegramCheck,
     WeasyprintCheck,
     format_json,
     format_text,
@@ -221,8 +224,11 @@ class TestSlackCheck:
             def __enter__(self): return self
             def __exit__(self, *a): pass
 
+        import urllib.error
         import urllib.request
-        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: MockResp())
+        def raise_http_error(*a, **kw):
+            raise urllib.error.HTTPError("https://test", 500, "Server Error", {}, None)
+        monkeypatch.setattr(urllib.request, "urlopen", raise_http_error)
         status, msg = SlackCheck().check(ctx)
         assert status == "FAIL"
         assert "500" in msg
@@ -325,12 +331,14 @@ class TestScriptsCheck:
             "generate-charts.py",
             "generate-pdf.py",
             "manage-schedule.sh",
-            "send-slack.sh",
+            "send-notification.py",
+            "anomaly-monitor.py",
+            "utils.py",
         ]:
             (scripts_dir / name).write_text("#!/bin/bash")
         status, msg = ScriptsCheck().check(ctx)
         assert status == "OK"
-        assert "4개" in msg
+        assert "6개" in msg
 
     def test_partial_scripts(self, ctx, tmp_plugin_dir):
         scripts_dir = tmp_plugin_dir / "scripts"
@@ -463,3 +471,142 @@ class TestExitCode:
     def test_skip_only_returns_0(self):
         results = [("a", "a", "SKIP", "skip")]
         assert get_exit_code(results) == 0
+
+
+# ---------- TelegramCheck ----------
+
+
+class TestTelegramCheck:
+    def test_no_config_returns_skip(self, ctx):
+        status, msg = TelegramCheck().check(ctx)
+        assert status == "SKIP"
+
+    def test_no_token_returns_skip(self, ctx, tmp_plugin_dir):
+        config = {"notifications": {"telegram": {"bot_token": "", "chat_id": "-100"}}}
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        status, msg = TelegramCheck().check(ctx)
+        assert status == "SKIP"
+        assert "미설정" in msg
+
+    def test_no_chat_id_returns_skip(self, ctx, tmp_plugin_dir):
+        config = {"notifications": {"telegram": {"bot_token": "123:ABC", "chat_id": ""}}}
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        status, msg = TelegramCheck().check(ctx)
+        assert status == "SKIP"
+
+    def test_connection_success(self, ctx, tmp_plugin_dir, monkeypatch):
+        config = {"notifications": {"telegram": {"bot_token": "123:ABC", "chat_id": "-100"}}}
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        class MockResp:
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+            def read(self): return b'{"ok":true,"result":{"username":"TestBot"}}'
+
+        import urllib.request
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: MockResp())
+        status, msg = TelegramCheck().check(ctx)
+        assert status == "OK"
+        assert "TestBot" in msg
+
+    def test_connection_failure(self, ctx, tmp_plugin_dir, monkeypatch):
+        config = {"notifications": {"telegram": {"bot_token": "bad", "chat_id": "-100"}}}
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        import urllib.request, urllib.error
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: (_ for _ in ()).throw(urllib.error.URLError("fail")))
+        status, msg = TelegramCheck().check(ctx)
+        assert status == "WARN"
+
+
+# ---------- DiscordCheck ----------
+
+
+class TestDiscordCheck:
+    def test_no_config_returns_skip(self, ctx):
+        status, msg = DiscordCheck().check(ctx)
+        assert status == "SKIP"
+
+    def test_no_url_returns_skip(self, ctx, tmp_plugin_dir):
+        config = {"notifications": {"discord": {"webhook_url": ""}}}
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        status, msg = DiscordCheck().check(ctx)
+        assert status == "SKIP"
+
+    def test_http_not_https_returns_fail(self, ctx, tmp_plugin_dir):
+        config = {"notifications": {"discord": {"webhook_url": "http://discord.com/api/webhooks/1/x"}}}
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        status, msg = DiscordCheck().check(ctx)
+        assert status == "FAIL"
+        assert "https" in msg
+
+    def test_connection_success(self, ctx, tmp_plugin_dir, monkeypatch):
+        config = {"notifications": {"discord": {"webhook_url": "https://discord.com/api/webhooks/1/x"}}}
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        class MockResp:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+
+        import urllib.request
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: MockResp())
+        status, msg = DiscordCheck().check(ctx)
+        assert status == "OK"
+
+    def test_connection_server_error(self, ctx, tmp_plugin_dir, monkeypatch):
+        config = {"notifications": {"discord": {"webhook_url": "https://discord.com/api/webhooks/1/x"}}}
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        import urllib.request, urllib.error
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: (_ for _ in ()).throw(urllib.error.URLError("fail")))
+        status, msg = DiscordCheck().check(ctx)
+        assert status == "WARN"
+
+
+# ---------- ConfigVersionCheck ----------
+
+
+class TestConfigVersionCheck:
+    def test_no_config_returns_skip(self, ctx):
+        status, msg = ConfigVersionCheck().check(ctx)
+        assert status == "SKIP"
+
+    def test_v2_returns_ok(self, ctx, tmp_plugin_dir):
+        config = {"version": "2.0"}
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        status, msg = ConfigVersionCheck().check(ctx)
+        assert status == "OK"
+        assert "최신" in msg
+
+    def test_v1_12_returns_warn(self, ctx, tmp_plugin_dir):
+        config = {"version": "1.12"}
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        status, msg = ConfigVersionCheck().check(ctx)
+        assert status == "WARN"
+        assert "migrate" in msg
+
+    def test_no_version_returns_warn(self, ctx, tmp_plugin_dir):
+        config = {"preset": "default"}
+        (tmp_plugin_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        status, msg = ConfigVersionCheck().check(ctx)
+        assert status == "WARN"
+        assert "미지정" in msg
+
+
+# ---------- ALL_CHECKS 레지스트리 ----------
+
+
+class TestAllChecksRegistry:
+    def test_all_checks_count(self):
+        assert len(ALL_CHECKS) == 12
+
+    def test_new_checks_registered(self):
+        keys = {c.key for c in ALL_CHECKS}
+        assert "telegram" in keys
+        assert "discord" in keys
+        assert "config_version" in keys
+        assert "proxy" in keys
+
+    def test_check_map_synced(self):
+        assert set(CHECK_MAP.keys()) == {c.key for c in ALL_CHECKS}

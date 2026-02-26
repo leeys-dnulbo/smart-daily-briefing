@@ -34,6 +34,8 @@ graph TB
     MCP["GA4 MCP Server<br/><small>google-analytics-mcp</small>"]
     GA4["Google Analytics<br/>Data API"]
     Slack["Slack Webhook"]
+    Telegram["Telegram Bot API"]
+    Discord["Discord Webhook"]
 
     User --> Skills
     User --> Commands
@@ -49,6 +51,8 @@ graph TB
     Hooks -.->|환경변수 주입| Scripts
     Hooks -.->|코드 검증| Commands
     Commands -.-> Slack
+    Commands -.-> Telegram
+    Commands -.-> Discord
 ```
 
 ---
@@ -201,7 +205,7 @@ graph TB
     Presets -->|프리셋 적용| Config
     Config -->|sections, date_range,<br/>anomaly_threshold| Briefing
     Config -->|export.auto_pdf| PDF[PDF 자동 생성]
-    Config -->|notifications.slack| Slack[Slack 알림]
+    Config -->|notifications.*| Notify[멀티채널 알림<br/><small>Slack/Telegram/Discord</small>]
 ```
 
 ### 주요 설정 항목
@@ -214,8 +218,10 @@ graph TB
 | `briefing.max_actions` | `4` | 액션 아이템 최대 수 |
 | `export.auto_pdf` | `true` | 브리핑 시 PDF 자동 생성 |
 | `notifications.slack.enabled` | `false` | Slack 알림 활성화 |
+| `notifications.telegram.enabled` | `false` | Telegram 알림 활성화 |
+| `notifications.discord.enabled` | `false` | Discord 알림 활성화 |
 | `notifications.anomaly_alerts.enabled` | `true` | 이상 탐지 자동 알림 |
-| `notifications.anomaly_alerts.cooldown_hours` | `24` | 동일 메트릭 알림 간격 |
+| `notifications.anomaly_alerts.cooldown_hours` | `4` | 동일 메트릭 알림 간격 |
 | `notifications.anomaly_alerts.max_alerts_per_day` | `10` | 일일 최대 알림 수 |
 
 ---
@@ -230,14 +236,17 @@ graph TB
 
     Detect -->|Claude Code| CC[슬래시 커맨드<br/><small>/smart-briefing:briefing</small>]
     Detect -->|OpenClaw| OC[자연어 스킬<br/><small>"브리핑 생성해줘"</small>]
+    Detect -->|Cowork| CW[자연어 요청<br/><small>COWORK.md 부트스트랩</small>]
 
     CC --> Core[공통 로직<br/><small>GA4 조회 → 분석 → 저장</small>]
     OC --> Core
+    CW --> Core
 
     Core --> Schedule{스케줄링?}
 
     Schedule -->|Claude Code| Launchd[macOS launchd<br/><small>manage-schedule.sh</small>]
     Schedule -->|OpenClaw| Cron[OpenClaw cron<br/><small>크로스 플랫폼</small>]
+    Schedule -->|Cowork| Manual[수동 실행<br/><small>ephemeral 컨테이너</small>]
 ```
 
 ---
@@ -321,7 +330,7 @@ W5: PDF 자동 생성 (설정에 따라)
 
 ### 환경 진단 (healthcheck.py)
 
-`HealthCheckItem` 기반 확장 가능한 진단 시스템 (8개 항목):
+`HealthCheckItem` 기반 확장 가능한 진단 시스템 (12개 항목):
 
 | 항목 | key | 진단 대상 |
 |------|-----|-----------|
@@ -330,9 +339,13 @@ W5: PDF 자동 생성 (설정에 따라)
 | matplotlib | `matplotlib` | 차트 라이브러리 |
 | weasyprint | `weasyprint` | PDF 라이브러리 |
 | Slack webhook | `slack` | 연결 테스트 |
+| Telegram Bot | `telegram` | getMe API 토큰 검증 |
+| Discord webhook | `discord` | webhook URL 유효성 |
+| config 버전 | `config_version` | v2.0 마이그레이션 확인 |
 | sidecar 파일 | `sidecar` | 최근 7일 존재 여부 |
 | 한국어 폰트 | `font` | 폰트 탐색 |
-| 필수 스크립트 | `scripts` | 4개 스크립트 존재 |
+| 필수 스크립트 | `scripts` | 6개 스크립트 존재 |
+| 네트워크 프록시 | `proxy` | 컨테이너 환경 프록시 상태 |
 
 CLI: `python3 scripts/healthcheck.py [--json] [--check key1,key2]`
 모듈: `run_healthcheck(plugin_dir, checks)` → `[(key, name, status, message)]`
@@ -343,20 +356,20 @@ CLI: `python3 scripts/healthcheck.py [--json] [--check key1,key2]`
 
 ### Python 통합 알림 시스템 (send-notification.py)
 
-`send-slack.sh`를 대체하는 순수 Python 구현. 채널 추상화 패턴으로 멀티채널 확장 가능:
+순수 Python 구현의 멀티채널 알림 시스템. 채널 추상화 패턴:
 
 ```
 NotificationChannel (base)
 ├── SlackChannel — Incoming Webhook
-├── TelegramChannel — v2.0.0 예정
-└── DiscordChannel — v2.0.0 예정
+├── TelegramChannel — Bot API (sendMessage)
+└── DiscordChannel — Webhook (embed 형식)
 ```
 
 | 함수 | 역할 |
 |------|------|
 | `send_with_retry(ch, payload, config)` | 지수 백오프 재시도 (최대 3회) |
-| `enqueue(type, payload)` | 실패 메시지 JSON 큐 저장 |
-| `flush_queue(ch, config)` | 큐 재전송 |
+| `enqueue(type, payload, channel)` | 실패 메시지 JSON 큐 저장 (채널 메타데이터 포함) |
+| `flush_queue(config)` | 큐 재전송 (채널별 라우팅) |
 | `get_active_channels(config)` | 활성 채널 목록 조회 |
 
 CLI: `python3 scripts/send-notification.py <briefing|test|anomaly|flush|status> [args]`
@@ -372,7 +385,7 @@ sidecar.json → extract anomalies → filter (cooldown/limit/severity) → send
 
 | 기능 | 설명 |
 |------|------|
-| 쿨다운 | 동일 메트릭 재알림 간격 (기본 24시간) |
+| 쿨다운 | 동일 메트릭 재알림 간격 (기본 4시간) |
 | 일일 한도 | 하루 최대 알림 수 (기본 10건) |
 | 심각도 필터 | min_severity 이상만 알림 |
 | 히스토리 | `.alert-history.json`에 7일간 보관 |
@@ -391,3 +404,84 @@ C4: 비교 결과 출력 (터미널만, 파일 저장 없음)
 ### 브리핑 히스토리 (briefing list)
 
 최근 14일 `briefings/` 디렉토리의 .md, .json, .pdf 파일을 탐색하여 목록 출력.
+
+---
+
+## v2.0.0 아키텍처 변경사항
+
+### 멀티채널 알림 시스템
+
+Slack 단일 채널에서 Telegram/Discord를 추가한 3채널 동시 지원:
+
+```mermaid
+flowchart LR
+    Event["이벤트 발생<br/><small>briefing/anomaly/test</small>"]
+    Event --> Router["get_active_channels()"]
+    Router --> Slack["SlackChannel<br/><small>Incoming Webhook</small>"]
+    Router --> Telegram["TelegramChannel<br/><small>Bot API sendMessage</small>"]
+    Router --> Discord["DiscordChannel<br/><small>Webhook embed</small>"]
+    Slack -->|실패| Queue["notification-queue.json<br/><small>channel 메타데이터 포함</small>"]
+    Telegram -->|실패| Queue
+    Discord -->|실패| Queue
+    Queue -->|flush| Router
+```
+
+채널별 특징:
+
+| 채널 | 프로토콜 | 메시지 제한 | 성공 응답 |
+|------|---------|-----------|----------|
+| Slack | POST → webhook URL | text 필드 | 200 + "ok" |
+| Telegram | POST → Bot API | 4096자 | 200 + `{"ok": true}` |
+| Discord | POST → webhook URL | embed field 1024자 | 200 또는 204 |
+
+### 알림 큐 v2.0
+
+큐 엔트리에 `channel` 필드 추가. v1.12 큐와 하위 호환 (`entry.get("channel", "slack")`):
+
+```json
+{
+  "type": "briefing",
+  "payload": {"text": "..."},
+  "channel": "telegram",
+  "timestamp": "2026-02-26T09:00:00",
+  "retries": 0
+}
+```
+
+### 커맨드 구조 정리
+
+| 변경 | 상세 |
+|------|------|
+| `notification` 커맨드 신규 | customize에서 알림 관련 기능 분리 |
+| `export` → `briefing export` 흡수 | export 커맨드는 deprecation wrapper로 유지 |
+| `customize` 경량화 | 알림 상태는 한 줄 요약만, 상세는 notification 안내 |
+
+### Config v2.0 마이그레이션
+
+`scripts/migrate-config.py`로 v1.x → v2.0 자동 마이그레이션:
+- `telegram`, `discord` 섹션 추가 (disabled 기본값)
+- `version` → `"2.0"` 업데이트
+- `config.json.bak` 자동 백업
+- `--dry-run` 플래그 지원, 멱등성 보장
+
+### send-slack.sh 완전 제거
+
+`send-slack.sh`를 삭제하고 모든 참조를 `send-notification.py`로 교체:
+- `manage-schedule.sh` (3곳): `send-notification.py briefing` + `anomaly-monitor.py` 호출
+- `healthcheck.py` ScriptsCheck: `send-notification.py`, `anomaly-monitor.py` 추가
+
+### Cowork (Claude Desktop) 호환성
+
+3번째 플랫폼으로 Cowork 지원 추가. 주요 대응:
+
+| 제약 | 대응 |
+|------|------|
+| SessionStart 훅 없음 | `COWORK.md` 부트스트랩 (사용자가 수동 로드) |
+| PreToolUse 훅 없음 | COWORK.md에 차트/PDF 규칙 명시 (자기 준수) |
+| 슬래시 명령 없음 | 자연어 명령 (OpenClaw과 동일) |
+| systemd/cron 없음 | `manage-schedule.sh` 가드 + 에러 안내 |
+| HTTP 프록시 경유 | urllib이 `HTTP_PROXY` 환경변수 자동 인식 |
+| macOS Homebrew 경로 | `utils.py` 플랫폼 가드 (`_IS_MACOS` 분기) |
+
+`healthcheck.py`에 `ProxyCheck` 추가 (총 12개 항목).
+`docs/cowork-setup.md` 설정 가이드 추가.

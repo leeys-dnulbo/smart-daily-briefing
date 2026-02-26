@@ -130,7 +130,7 @@ pipx run google-analytics-mcp --health-check
 |------|-------------|----------|
 | 슬래시 명령 (`/smart-briefing:*`) | 지원 | 자연어로 요청 |
 | 스케줄링 | macOS launchd / Linux systemd | OpenClaw cron (크로스 플랫폼) |
-| 알림 | Slack 웹훅 | 멀티채널 (Slack, Telegram, Discord 등) |
+| 알림 | 멀티채널 (Slack, Telegram, Discord) | 멀티채널 (Slack, Telegram, Discord) |
 | 차트 생성 | 지원 | 지원 (Python 필요) |
 
 ## OpenClaw 스케줄링 (cron)
@@ -179,7 +179,7 @@ openclaw cron add --name "GA4-daily-briefing" \
   --announce --channel slack --to "webhook:${SLACK_WEBHOOK_URL}"
 ```
 
-### Telegram 연동 (향후 지원 예정)
+### Telegram 연동
 
 ```bash
 openclaw cron add --name "GA4-daily-briefing" \
@@ -189,7 +189,7 @@ openclaw cron add --name "GA4-daily-briefing" \
   --announce --channel telegram --to "chat:${TELEGRAM_CHAT_ID}"
 ```
 
-### Discord 연동 (향후 지원 예정)
+### Discord 연동
 
 ```bash
 openclaw cron add --name "GA4-daily-briefing" \

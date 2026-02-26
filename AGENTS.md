@@ -68,11 +68,12 @@ Smart Daily Briefing은 **Claude Code 및 OpenClaw**에서 동작하는 GA4 데�
 | 커맨드 | 파일 | 용도 |
 |--------|------|------|
 | `/smart-briefing:setup` | `commands/setup.md` | 초기 설정 및 MCP 연결 확인 |
-| `/smart-briefing:briefing` | `commands/briefing.md` | 일일 종합 브리핑 생성 |
+| `/smart-briefing:briefing` | `commands/briefing.md` | 일일 종합 브리핑 생성 (export 포함) |
 | `/smart-briefing:customize` | `commands/customize.md` | 브리핑 개인화 설정 조회/변경 |
+| `/smart-briefing:notification` | `commands/notification.md` | 알림 관리 (test/status/flush/history/setup) |
 | `/smart-briefing:reports` | `commands/reports.md` | 저장된 리포트 목록 조회 |
 | `/smart-briefing:schedule` | `commands/schedule.md` | 스케줄 설정 및 관리 |
-| `/smart-briefing:export` | `commands/export.md` | 브리핑 PDF 내보내기 |
+| `/smart-briefing:export` | `commands/export.md` | (deprecated → briefing export) |
 
 ### 3. Agents (서브에이전트)
 
@@ -307,15 +308,20 @@ smart-daily-briefing/
 │   ├── setup.md
 │   ├── briefing.md
 │   ├── customize.md
+│   ├── notification.md
 │   ├── reports.md
 │   ├── schedule.md
-│   └── export.md
+│   └── export.md                  ← deprecated → briefing export
 │
 ├── scripts/
 │   ├── generate-charts.py         ← 차트 이미지 생성 (matplotlib/SVG)
 │   ├── generate-pdf.py            ← 브리핑 PDF 내보내기 (weasyprint)
 │   ├── manage-schedule.sh         ← 스케줄 관리 (macOS launchd)
-│   └── send-slack.sh              ← Slack 알림 전송
+│   ├── send-notification.py       ← 멀티채널 알림 (Slack/Telegram/Discord)
+│   ├── anomaly-monitor.py         ← 이상 탐지 모니터
+│   ├── healthcheck.py             ← 환경 진단 (11개 항목)
+│   ├── migrate-config.py          ← config v1.x→v2.0 마이그레이션
+│   └── utils.py                   ← 공통 유틸리티 (폰트, atomic write)
 │
 ├── hooks/
 │   ├── hooks.json                 ← 훅 설정 (SessionStart, PreToolUse)

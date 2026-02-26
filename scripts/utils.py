@@ -18,11 +18,14 @@ import tempfile
 
 
 # ---------- Python 자동 전환 ----------
+_IS_MACOS = platform.system() == 'Darwin'
+
 _HOMEBREW_PYTHONS = [
     '/opt/homebrew/bin/python3.13',
     '/opt/homebrew/bin/python3.12',
     '/opt/homebrew/bin/python3.11',
-]
+] if _IS_MACOS else []
+
 _OTHER_PYTHONS = [
     '/usr/local/bin/python3',
     '/usr/bin/python3',
@@ -60,10 +63,11 @@ def ensure_best_python(test_import):
     Args:
         test_import: 테스트할 import 문자열
     """
-    if '/opt/homebrew/' not in sys.executable:
+    if _IS_MACOS and '/opt/homebrew/' not in sys.executable:
+        # macOS: Homebrew Python 우선
         reexec_with_better_python(test_import)
     else:
-        # exec() 대신 subprocess로 안전하게 import 가능 여부 테스트
+        # macOS+Homebrew 또는 Linux: 현재 Python이 import 가능하면 그대로 사용
         try:
             result = subprocess.run(
                 [sys.executable, '-c', test_import],

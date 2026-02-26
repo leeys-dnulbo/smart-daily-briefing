@@ -20,6 +20,7 @@ import argparse
 import importlib.util
 import json
 import os
+import platform
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -146,14 +147,17 @@ class SlackCheck(HealthCheckItem):
         if not url.startswith("https://"):
             return "FAIL", "webhook URL은 https://로 시작해야 합니다"
 
-        # HEAD 요청으로 연결 테스트
+        # HEAD 요청으로 연결 테스트 (urlopen은 4xx/5xx에서 HTTPError를 발생시킴)
         try:
+            import urllib.error
             import urllib.request
             req = urllib.request.Request(url, method="HEAD")
             with urllib.request.urlopen(req, timeout=5) as resp:
-                if resp.status < 500:
-                    return "OK", "연결됨"
-                return "FAIL", f"서버 에러 (HTTP {resp.status})"
+                return "OK", "연결됨"
+        except urllib.error.HTTPError as e:
+            if e.code < 500:
+                return "WARN", f"HTTP {e.code} — webhook URL 확인 필요"
+            return "FAIL", f"서버 에러 (HTTP {e.code})"
         except Exception as e:
             return "WARN", f"연결 테스트 실패: {type(e).__name__}"
 
@@ -207,17 +211,138 @@ class FontCheck(HealthCheckItem):
             return "WARN", f"폰트 확인 실패: {type(e).__name__}"
 
 
+class TelegramCheck(HealthCheckItem):
+    name = "Telegram Bot"
+    key = "telegram"
+
+    def check(self, ctx):
+        config_path = os.path.join(ctx["plugin_dir"], "config.json")
+        if not os.path.exists(config_path):
+            return "SKIP", "config.json 없음"
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return "FAIL", "config.json 파싱 실패"
+
+        tg = data.get("notifications", {}).get("telegram", {})
+        token = tg.get("bot_token", "")
+        chat_id = tg.get("chat_id", "")
+        if not token or not chat_id:
+            return "SKIP", "bot_token/chat_id 미설정"
+
+        # getMe API로 봇 토큰 유효성 확인
+        try:
+            import urllib.request
+            url = f"https://api.telegram.org/bot{token}/getMe"
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                result = json.loads(resp.read())
+                if result.get("ok"):
+                    bot_name = result.get("result", {}).get("username", "?")
+                    return "OK", f"연결됨 (@{bot_name})"
+                return "FAIL", "봇 토큰 유효하지 않음"
+        except Exception as e:
+            return "WARN", f"연결 테스트 실패: {type(e).__name__}"
+
+
+class DiscordCheck(HealthCheckItem):
+    name = "Discord webhook"
+    key = "discord"
+
+    def check(self, ctx):
+        config_path = os.path.join(ctx["plugin_dir"], "config.json")
+        if not os.path.exists(config_path):
+            return "SKIP", "config.json 없음"
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return "FAIL", "config.json 파싱 실패"
+
+        dc = data.get("notifications", {}).get("discord", {})
+        url = dc.get("webhook_url", "")
+        if not url:
+            return "SKIP", "webhook URL 미설정"
+        if not url.startswith("https://"):
+            return "FAIL", "webhook URL은 https://로 시작해야 합니다"
+
+        try:
+            import urllib.error
+            import urllib.request
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return "OK", "연결됨"
+        except urllib.error.HTTPError as e:
+            if e.code < 500:
+                return "WARN", f"HTTP {e.code} — webhook URL 확인 필요"
+            return "FAIL", f"서버 에러 (HTTP {e.code})"
+        except Exception as e:
+            return "WARN", f"연결 테스트 실패: {type(e).__name__}"
+
+
+class ConfigVersionCheck(HealthCheckItem):
+    name = "config.json 버전"
+    key = "config_version"
+
+    def check(self, ctx):
+        config_path = os.path.join(ctx["plugin_dir"], "config.json")
+        if not os.path.exists(config_path):
+            return "SKIP", "config.json 없음"
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return "FAIL", "config.json 파싱 실패"
+
+        version = data.get("version", "")
+        if version == "2.0":
+            return "OK", "v2.0 (최신)"
+        elif version:
+            return "WARN", f"v{version} — python3 scripts/migrate-config.py 실행 권장"
+        else:
+            return "WARN", "버전 미지정 — python3 scripts/migrate-config.py 실행 권장"
+
+
 class ScriptsCheck(HealthCheckItem):
     name = "필수 스크립트"
     key = "scripts"
 
     def check(self, ctx):
         scripts_dir = os.path.join(ctx["plugin_dir"], "scripts")
-        required = ["generate-charts.py", "generate-pdf.py", "manage-schedule.sh", "send-slack.sh"]
+        required = [
+            "generate-charts.py", "generate-pdf.py", "manage-schedule.sh",
+            "send-notification.py", "anomaly-monitor.py", "utils.py",
+        ]
         missing = [s for s in required if not os.path.exists(os.path.join(scripts_dir, s))]
         if not missing:
             return "OK", f"{len(required)}개 모두 존재"
         return "FAIL", f"누락: {', '.join(missing)}"
+
+
+class ProxyCheck(HealthCheckItem):
+    name = "네트워크 프록시"
+    key = "proxy"
+
+    def check(self, ctx):
+        if platform.system() != "Linux":
+            return "SKIP", "macOS/Windows (프록시 불필요)"
+
+        http_proxy = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+        https_proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+
+        if not http_proxy and not https_proxy:
+            if not os.path.exists("/run/systemd/system"):
+                return "WARN", "프록시 미설정 (컨테이너 환경에서 네트워크 오류 가능)"
+            return "SKIP", "프록시 미설정 (일반 Linux)"
+
+        try:
+            import urllib.request
+            req = urllib.request.Request("https://www.googleapis.com", method="HEAD")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return "OK", f"프록시 연결됨 ({https_proxy or http_proxy})"
+        except Exception as e:
+            return "FAIL", f"프록시 연결 실패: {type(e).__name__}"
 
 
 # ---------- 헬스체크 실행기 ----------
@@ -228,9 +353,13 @@ ALL_CHECKS = [
     MatplotlibCheck(),
     WeasyprintCheck(),
     SlackCheck(),
+    TelegramCheck(),
+    DiscordCheck(),
     SidecarCheck(),
     FontCheck(),
     ScriptsCheck(),
+    ConfigVersionCheck(),
+    ProxyCheck(),
 ]
 
 CHECK_MAP = {c.key: c for c in ALL_CHECKS}

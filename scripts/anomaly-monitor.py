@@ -39,7 +39,7 @@ HISTORY_PATH = os.path.join(PLUGIN_DIR, "briefings", ".alert-history.json")
 LOG_PATH = os.path.join(PLUGIN_DIR, "briefings", "schedule.log")
 
 # 기본 설정
-DEFAULT_COOLDOWN_HOURS = 24
+DEFAULT_COOLDOWN_HOURS = 4
 DEFAULT_MAX_ALERTS_PER_DAY = 10
 
 

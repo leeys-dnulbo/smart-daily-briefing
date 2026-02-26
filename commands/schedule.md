@@ -70,7 +70,7 @@ $ARGUMENTS
    리포트 '{이름}' 스케줄이 설정되었습니다!
    - 빈도: {매일/매주 {요일}}
    - 시간: {HH:MM}
-   - Slack 알림: {활성화됨/미설정}
+   - 알림: {활성 채널 목록 또는 "미설정"}
 
    해제: /smart-briefing:schedule uninstall-report {이름}
    ```
@@ -118,26 +118,22 @@ macOS launchd를 이용하여 매일 자동 브리핑 스케줄을 설치합니�
      ```bash
      bash scripts/manage-schedule.sh install {HH:MM}
      ```
-  3. **Slack 알림 설정 확인:** config.json에 `notifications.slack.webhook_url`이 없으면 사용자에게 물어봅니다:
+  3. **알림 채널 설정 확인:** 활성화된 알림 채널이 없으면 사용자에게 안내합니다:
      ```
-     브리핑 결과를 Slack으로 받아보시겠어요?
-     받으시려면 Slack Incoming Webhook URL을 입력해주세요.
+     브리핑 결과를 알림으로 받아보시겠어요?
+     /smart-briefing:notification setup 으로 Slack/Telegram/Discord를 설정할 수 있습니다.
      (건너뛰려면 "아니요" 또는 "나중에")
      ```
-     - 사용자가 URL을 입력하면:
-       1. `https://` 시작 여부 검증
-       2. config.json에 `notifications.slack.webhook_url` 저장, `enabled: true` 설정
-       3. `python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" test`로 테스트 메시지 전송
-       4. 성공하면 "Slack 알림이 설정되었습니다!" 안내
+     - 사용자가 설정을 원하면 `/smart-briefing:notification setup`으로 안내합니다
      - "아니요"/"나중에"이면 건너뜁니다
-     - 이미 webhook_url이 설정되어 있으면 이 단계를 건너뜁니다
+     - 이미 활성 채널이 있으면 이 단계를 건너뜁니다
   4. 결과를 확인하고 안내합니다:
      ```
      자동 브리핑 스케줄이 설정되었습니다!
      - 시간: 매일 {HH:MM}
      - 브리핑 결과: briefings/{날짜}.md
      - 실행 로그: briefings/schedule.log
-     - Slack 알림: {활성화됨/미설정}
+     - 알림: {활성 채널 목록 또는 "미설정"}
 
      변경: /smart-briefing:schedule install {다른시간}
      해제: /smart-briefing:schedule uninstall
@@ -184,8 +180,8 @@ bash scripts/manage-schedule.sh uninstall-weekly
    bash scripts/manage-schedule.sh status
    ```
 2. 결과를 표시합니다:
-   - "ACTIVE"이면: 매일 실행 시간, Slack 알림 상태, 마지막 실행 기록을 표시
-   - "SLACK: 활성화됨" 또는 "SLACK: 미설정"도 함께 표시
+   - "ACTIVE"이면: 매일 실행 시간, 알림 채널 상태, 마지막 실행 기록을 표시
+   - 활성 알림 채널 목록도 함께 표시 (없으면 "알림: 미설정")
    - "NONE"이면: "자동 브리핑이 설정되어 있지 않습니다. `/smart-briefing:schedule install` 로 설정할 수 있습니다."
 
 ### 리포트를 찾을 수 없는 경우

@@ -15,6 +15,25 @@ LOG_FILE="${PLUGIN_DIR}/briefings/schedule.log"
 PLATFORM="$(uname -s)"
 
 # ---------------------------------------------------------------------------
+# Cowork/컨테이너 환경 감지
+# ---------------------------------------------------------------------------
+is_ephemeral_container() {
+  [ "$PLATFORM" = "Linux" ] && [ ! -d "/run/systemd/system" ] && ! command -v crontab &>/dev/null
+}
+
+require_persistent_env() {
+  if is_ephemeral_container; then
+    echo "ERROR: 이 환경(컨테이너/Cowork)에서는 자동 스케줄을 설치할 수 없습니다." >&2
+    echo "" >&2
+    echo "대안:" >&2
+    echo "  1. Cowork에서 직접 '브리핑 생성해줘'라고 요청하세요" >&2
+    echo "  2. Claude Code 환경에서 스케줄을 설치하세요" >&2
+    echo "  3. OpenClaw cron 기능을 사용하세요" >&2
+    exit 1
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # 유틸리티 함수
 # ---------------------------------------------------------------------------
 
@@ -305,6 +324,7 @@ schedule_exists() {
 # ---------------------------------------------------------------------------
 case "$ACTION" in
   install)
+    require_persistent_env
     TIME="${2:-09:00}"
     validate_time "$TIME"
     HOUR="${TIME%%:*}"
@@ -333,9 +353,12 @@ claude -p \\
 
 echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 브리핑 완료" >> "\${LOG_FILE}"
 
-# Slack 알림 전송 (config.json에 webhook_url이 설정된 경우만)
-if [ -f "\${PLUGIN_DIR}/scripts/send-slack.sh" ]; then
-  bash "\${PLUGIN_DIR}/scripts/send-slack.sh" "\${TODAY}" >> "\${LOG_FILE}" 2>&1
+# 알림 전송 (config.json에 채널이 설정된 경우만)
+if [ -f "\${PLUGIN_DIR}/scripts/send-notification.py" ]; then
+  python3 "\${PLUGIN_DIR}/scripts/send-notification.py" briefing "\${TODAY}" >> "\${LOG_FILE}" 2>&1
+fi
+if [ -f "\${PLUGIN_DIR}/scripts/anomaly-monitor.py" ]; then
+  python3 "\${PLUGIN_DIR}/scripts/anomaly-monitor.py" "\${TODAY}" >> "\${LOG_FILE}" 2>&1
 fi
 CONTENT_EOF
 )"
@@ -359,6 +382,7 @@ CONTENT_EOF
     ;;
 
   install-weekly)
+    require_persistent_env
     WEEKLY_TIME="${2:-09:00}"
     WEEKLY_DAY="${3:-monday}"
     validate_time "$WEEKLY_TIME"
@@ -392,9 +416,9 @@ claude -p \\
 
 echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 주간 브리핑 완료" >> "\${LOG_FILE}"
 
-# Slack 알림 전송
-if [ -f "\${PLUGIN_DIR}/scripts/send-slack.sh" ]; then
-  bash "\${PLUGIN_DIR}/scripts/send-slack.sh" "\$(date '+%Y-%m-%d')" >> "\${LOG_FILE}" 2>&1
+# 알림 전송
+if [ -f "\${PLUGIN_DIR}/scripts/send-notification.py" ]; then
+  python3 "\${PLUGIN_DIR}/scripts/send-notification.py" briefing "\$(date '+%Y-%m-%d')" >> "\${LOG_FILE}" 2>&1
 fi
 CONTENT_EOF
 )"
@@ -419,6 +443,7 @@ CONTENT_EOF
     ;;
 
   install-report)
+    require_persistent_env
     REPORT_NAME="${2:-}"
     FREQUENCY="${3:-daily}"
     REPORT_TIME="${4:-09:00}"
@@ -466,9 +491,9 @@ claude -p \\
 
 echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 리포트 완료: \${REPORT_NAME}" >> "\${LOG_FILE}"
 
-# Slack 알림 전송
-if [ -f "\${PLUGIN_DIR}/scripts/send-slack.sh" ]; then
-  bash "\${PLUGIN_DIR}/scripts/send-slack.sh" report "\${REPORT_NAME}" >> "\${LOG_FILE}" 2>&1
+# 알림 전송
+if [ -f "\${PLUGIN_DIR}/scripts/send-notification.py" ]; then
+  python3 "\${PLUGIN_DIR}/scripts/send-notification.py" briefing "\$(date '+%Y-%m-%d')" >> "\${LOG_FILE}" 2>&1
 fi
 CONTENT_EOF
 )"

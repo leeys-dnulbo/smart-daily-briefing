@@ -14,6 +14,9 @@ argument-hint: "[daily | weekly | compare | list]"
 - `compare`: **브리핑 비교** (아래 "브리핑 비교" 섹션). 직전 2일(어제 vs 그제) 비교.
 - `compare YYYY-MM-DD YYYY-MM-DD`: 지정된 두 날짜의 브리핑 비교.
 - `list`: **브리핑 히스토리** (아래 "브리핑 히스토리" 섹션). 최근 14일 브리핑 목록.
+- `export`: **PDF 내보내기** (아래 "PDF 내보내기" 섹션). 브리핑을 PDF로 변환.
+- `export YYYY-MM-DD`: 특정 날짜 브리핑을 PDF로 변환.
+- `export latest`: 가장 최근 브리핑을 PDF로 변환.
 
 ---
 
@@ -48,7 +51,7 @@ GA4 MCP 서버가 연결되지 않았습니다.
 
 ```json
 {
-  "version": "1.0",
+  "version": "2.0",
   "preset": "default",
   "briefing": {
     "sections": [
@@ -669,4 +672,64 @@ sidecar 보유율: {sidecar 있는 일일 수}/{일일 총 수} ({비율}%)
 ```
 최근 14일간 생성된 브리핑이 없습니다.
 브리핑을 생성하려면: /smart-briefing:briefing
+```
+
+---
+
+# PDF 내보내기
+
+브리핑 마크다운 파일을 PDF로 변환합니다.
+
+## 대상 브리핑 결정
+
+인수에 따라 변환할 브리핑 파일을 결정합니다:
+
+1. **날짜 지정** (예: `export 2026-02-15`): `briefings/2026-02-15.md` 파일을 사용합니다
+2. **"latest" 또는 `export`만**: `briefings/` 디렉토리에서 가장 최근 `.md` 파일을 찾습니다
+   - Glob 도구로 `briefings/*.md` 패턴을 검색하여 가장 최근 파일 선택
+
+## 파일 확인
+
+대상 파일이 없으면:
+```
+해당 날짜의 브리핑이 없습니다.
+`/smart-briefing:briefing`으로 먼저 생성하세요.
+```
+
+## PDF 생성
+
+**파일명 규칙**: 반드시 `briefings/YYYY-MM-DD.pdf` 형식을 사용합니다. 한국어나 부가 텍스트를 파일명에 포함하지 않습니다.
+
+```bash
+PDF_SCRIPT="${SMART_BRIEFING_ROOT}/scripts/generate-pdf.py"
+[ -z "$SMART_BRIEFING_ROOT" ] && PDF_SCRIPT=$(find "$HOME/.claude" "$HOME/Library/Application Support/Claude" -name "generate-pdf.py" -path "*smart-daily-briefing*" 2>/dev/null | head -1)
+[ -z "$PDF_SCRIPT" ] && PDF_SCRIPT="scripts/generate-pdf.py"
+PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
+$PYTHON "$PDF_SCRIPT" \
+  --input briefings/{날짜}.md \
+  --output briefings/{날짜}.pdf \
+  --charts-dir briefings/charts/{날짜}/
+```
+
+`--charts-dir`은 `briefings/charts/{날짜}/` 디렉토리가 존재하는 경우에만 전달합니다.
+
+## 결과 안내
+
+**성공 시:**
+```
+PDF가 생성되었습니다!
+- 파일: briefings/{날짜}.pdf
+- 크기: {파일크기}
+
+원본 마크다운: briefings/{날짜}.md
+```
+
+**weasyprint/markdown 미설치 시** (종료코드 1):
+```
+PDF 생성에 필요한 라이브러리가 설치되지 않았습니다.
+
+설치 방법:
+  pip install weasyprint markdown
+
+설치 후 다시 시도해주세요.
 ```

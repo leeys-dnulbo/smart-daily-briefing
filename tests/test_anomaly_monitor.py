@@ -81,7 +81,7 @@ class TestGetAlertConfig:
     def test_defaults(self):
         config = get_alert_config({})
         assert config["enabled"] is True
-        assert config["cooldown_hours"] == 24
+        assert config["cooldown_hours"] == 4
         assert config["max_alerts_per_day"] == 10
         assert config["min_severity"] == "warning"
 
@@ -481,7 +481,7 @@ class TestGetAlertConfigValidation:
         config = get_alert_config({
             "notifications": {"anomaly_alerts": {"cooldown_hours": -5}}
         })
-        assert config["cooldown_hours"] == 24
+        assert config["cooldown_hours"] == 4
 
     def test_zero_max_alerts_uses_default(self):
         config = get_alert_config({
@@ -493,7 +493,7 @@ class TestGetAlertConfigValidation:
         config = get_alert_config({
             "notifications": {"anomaly_alerts": {"cooldown_hours": "bad"}}
         })
-        assert config["cooldown_hours"] == 24
+        assert config["cooldown_hours"] == 4
 
     def test_unknown_severity_uses_default(self):
         config = get_alert_config({

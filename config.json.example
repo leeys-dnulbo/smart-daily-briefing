@@ -1,5 +1,5 @@
 {
-  "version": "1.11",
+  "version": "2.0",
   "preset": "default",
   "briefing": {
     "sections": [
@@ -89,8 +89,23 @@
   },
   "notifications": {
     "slack": {
-      "webhook_url": "",
-      "enabled": false
+      "enabled": false,
+      "webhook_url": ""
+    },
+    "telegram": {
+      "enabled": false,
+      "bot_token": "",
+      "chat_id": ""
+    },
+    "discord": {
+      "enabled": false,
+      "webhook_url": ""
+    },
+    "anomaly_alerts": {
+      "enabled": true,
+      "cooldown_hours": 4,
+      "max_alerts_per_day": 10,
+      "min_severity": "warning"
     }
   }
 }

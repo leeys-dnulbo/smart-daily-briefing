@@ -183,7 +183,7 @@ flowchart LR
 | PDF 생성 | weasyprint + markdown (Python) | HTML/CSS 기반 PDF 렌더링 |
 | 한국어 폰트 | NanumGothic (번들) | 컨테이너 환경에서도 한국어 렌더링 |
 | 스케줄링 | macOS launchd / OpenClaw cron | 자동 브리핑 실행 |
-| 알림 | Slack Incoming Webhook | 브리핑 요약 전송 |
+| 알림 | Slack / Telegram / Discord | 멀티채널 브리핑 요약 전송 |
 
 ---
 
@@ -254,7 +254,7 @@ smart-daily-briefing/
 
 | 항목 | 상태 | 설명 |
 |------|------|------|
-| 멀티채널 알림 | 보류 | Telegram, Discord 등 (OpenClaw API 키 이슈 대기) |
-| 프로액티브 이상 탐지 | 예정 | 4시간 주기 모니터링, 임계값 초과 시 즉시 알림 |
-| 브리핑 히스토리 비교 | 예정 | 어제 vs 오늘 변화 자동 추적 |
+| 멀티채널 알림 | ✅ 완료 | Slack, Telegram, Discord (v2.0.0) |
+| 프로액티브 이상 탐지 | ✅ 완료 | anomaly-monitor.py, 쿨다운 4시간 (v1.12.0) |
+| 브리핑 히스토리 비교 | ✅ 완료 | `/smart-briefing:briefing compare` (v1.11.0) |
 | 멀티 Property 지원 | 예정 | 여러 GA4 속성을 하나의 브리핑에서 비교 |

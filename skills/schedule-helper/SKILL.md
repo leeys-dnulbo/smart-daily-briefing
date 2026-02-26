@@ -125,6 +125,14 @@ openclaw cron add --name "GA4-daily-briefing" \
   --announce --channel discord --to "webhook:${DISCORD_WEBHOOK_URL}"
 ```
 
+## Cowork (Claude Desktop) 환경
+
+Cowork는 ephemeral 컨테이너이므로 자동 스케줄을 설치할 수 없습니다.
+사용자에게 다음을 안내하세요:
+
+- 브리핑은 대화 중 수동으로 "브리핑 생성해줘"라고 요청하여 생성 가능합니다
+- 정기 브리핑이 필요하면 Claude Code 또는 OpenClaw 환경을 권장합니다
+
 ## 응답 형식
 
 ### 스케줄 설정 완료 시

@@ -189,9 +189,9 @@ flowchart LR
 graph TB
     subgraph Presets["프리셋 (5종)"]
         P1["default<br/><small>overview, pages,<br/>traffic, trend, device</small>"]
-        P2["behavior<br/><small>+ user_behavior,<br/>events, landing</small>"]
-        P3["traffic<br/><small>traffic 강화,<br/>+ landing, campaigns</small>"]
-        P4["campaign<br/><small>+ campaigns,<br/>events, landing</small>"]
+        P2["behavior<br/><small>overview, user_behavior,<br/>top_pages, events, trend</small>"]
+        P3["traffic<br/><small>overview, traffic_sources,<br/>landing_pages, trend, device</small>"]
+        P4["campaign<br/><small>overview, campaigns,<br/>traffic_sources, landing, trend</small>"]
         P5["content<br/><small>pages 강화,<br/>+ landing, events</small>"]
     end
 
@@ -305,7 +305,7 @@ flowchart TB
 | `normalize_sidecar(data)` | v1.10.0 sidecar를 v1.11 형식으로 정규화 |
 | `aggregate_sidecars(sidecars)` | 일별 sidecar를 주간 단위로 집계 (SUM/가중평균) |
 
-스키마에 `schema_version`, `comparable_keys` 필드 추가. v1.12.0 비교 기능의 기반.
+스키마에 `schema_version`, `comparable_keys` 필드 추가. 비교 기능의 데이터 소스.
 
 ### 주간 브리핑 파이프라인
 

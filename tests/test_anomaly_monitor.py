@@ -18,6 +18,7 @@ sys.modules["anomaly_monitor"] = anomaly_monitor
 _spec.loader.exec_module(anomaly_monitor)
 
 from anomaly_monitor import (
+    SEVERITY_LEVELS,
     clean_old_history,
     count_today_alerts,
     is_in_cooldown,
@@ -26,6 +27,7 @@ from anomaly_monitor import (
     extract_anomalies,
     get_alert_config,
     load_history,
+    main,
     save_history,
     load_sidecar,
     action_monitor,
@@ -371,3 +373,82 @@ class TestActionClear:
         assert len(loaded["alerts"]) == 0
         captured = capsys.readouterr()
         assert "초기화" in captured.out
+
+
+# ---------- SEVERITY_LEVELS ----------
+
+
+class TestSeverityLevels:
+    def test_includes_info(self):
+        assert "info" in SEVERITY_LEVELS
+        assert SEVERITY_LEVELS["info"] == 0
+
+    def test_order(self):
+        assert SEVERITY_LEVELS["info"] < SEVERITY_LEVELS["warning"] < SEVERITY_LEVELS["critical"]
+
+
+# ---------- main() ----------
+
+
+class TestMain:
+    def test_no_args_uses_today(self, tmp_plugin_dir, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["anomaly-monitor.py"])
+        # 오늘 날짜의 sidecar가 없으므로 에러
+        result = main()
+        assert result == 2
+
+    def test_history_action(self, tmp_plugin_dir, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["anomaly-monitor.py", "history"])
+        result = main()
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "없습니다" in captured.out
+
+    def test_clear_action(self, tmp_plugin_dir, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["anomaly-monitor.py", "clear"])
+        result = main()
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "초기화" in captured.out
+
+    def test_invalid_date_format(self, tmp_plugin_dir, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["anomaly-monitor.py", "not-a-date"])
+        result = main()
+        assert result == 2
+        captured = capsys.readouterr()
+        assert "유효하지 않은 날짜" in captured.err
+
+    def test_valid_date(self, tmp_plugin_dir, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["anomaly-monitor.py", "2026-01-01"])
+        result = main()
+        assert result == 2  # no sidecar for this date
+        captured = capsys.readouterr()
+        assert "찾을 수 없습니다" in captured.err
+
+
+# ---------- action_history non-numeric change_pct ----------
+
+
+class TestActionHistoryEdgeCases:
+    def test_non_numeric_change_pct(self, tmp_plugin_dir, capsys):
+        history = {"alerts": [
+            {"metric": "sessions", "change_pct": "not_a_number", "severity": "warning",
+             "timestamp": "2026-02-26T10:00:00"},
+        ]}
+        save_history(history)
+        result = action_history()
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "sessions" in captured.out
+        assert "?%" in captured.out
+
+    def test_none_change_pct(self, tmp_plugin_dir, capsys):
+        history = {"alerts": [
+            {"metric": "test", "change_pct": None, "severity": "warning",
+             "timestamp": "2026-02-26T10:00:00"},
+        ]}
+        save_history(history)
+        result = action_history()
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "?%" in captured.out

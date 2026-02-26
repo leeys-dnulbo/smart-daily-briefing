@@ -19,6 +19,8 @@ Exit codes:
 
 import json
 import os
+import re
+import subprocess
 import sys
 from datetime import datetime, timedelta
 
@@ -148,7 +150,7 @@ def record_alert(history, metric, change_pct, severity):
 # 이상 탐지 필터링
 # ---------------------------------------------------------------------------
 
-SEVERITY_LEVELS = {"warning": 1, "critical": 2}
+SEVERITY_LEVELS = {"info": 0, "warning": 1, "critical": 2}
 
 
 def filter_anomalies(anomalies, history, alert_config):
@@ -217,8 +219,6 @@ def extract_anomalies(sidecar):
 
 def send_anomaly_alert(anomalies):
     """send-notification.py를 통해 이상 탐지 알림을 전송."""
-    import subprocess
-
     notification_script = os.path.join(PLUGIN_DIR, "scripts", "send-notification.py")
     if not os.path.exists(notification_script):
         log(f"send-notification.py not found: {notification_script}")
@@ -231,7 +231,7 @@ def send_anomaly_alert(anomalies):
             capture_output=True, text=True, timeout=60,
         )
         return result.returncode == 0
-    except (OSError, subprocess.TimeoutExpired) as e:
+    except (OSError, ValueError, subprocess.TimeoutExpired) as e:
         log(f"Failed to run send-notification.py: {e}")
         return False
 
@@ -305,8 +305,12 @@ def action_history():
         metric = a.get("metric", "?")
         change = a.get("change_pct", 0)
         severity = a.get("severity", "?")
-        direction = "+" if change > 0 else ""
-        print(f"  [{ts}] {metric}: {direction}{change:.1f}% ({severity})")
+        try:
+            change = float(change)
+            direction = "+" if change > 0 else ""
+            print(f"  [{ts}] {metric}: {direction}{change:.1f}% ({severity})")
+        except (TypeError, ValueError):
+            print(f"  [{ts}] {metric}: ?% ({severity})")
     return 0
 
 
@@ -332,7 +336,10 @@ def main():
     elif arg == "clear":
         return action_clear()
     else:
-        # YYYY-MM-DD 날짜로 간주
+        # YYYY-MM-DD 날짜 형식 검증
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", arg):
+            print(f"유효하지 않은 날짜 형식: {arg} (YYYY-MM-DD)", file=sys.stderr)
+            return 2
         return action_monitor(arg)
 
 

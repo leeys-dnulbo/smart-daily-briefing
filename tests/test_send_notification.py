@@ -20,6 +20,7 @@ _spec.loader.exec_module(send_notification)
 
 from send_notification import (
     CHANNELS,
+    MAX_FLUSH_RETRIES,
     SlackChannel,
     NotificationChannel,
     _extract_section,
@@ -30,6 +31,7 @@ from send_notification import (
     get_channel_status,
     load_config,
     log,
+    main,
     send_with_retry,
     action_test,
     action_briefing,
@@ -544,3 +546,75 @@ class TestLog:
         with open(mod.LOG_PATH, encoding="utf-8") as f:
             content = f.read()
         assert "[slack]" in content
+
+
+# ---------- flush max retries ----------
+
+
+class TestFlushMaxRetries:
+    def test_drops_after_max_retries(self, tmp_plugin_dir, slack_config, monkeypatch):
+        import send_notification as mod
+
+        # 직접 큐 파일에 MAX_FLUSH_RETRIES 이상인 항목 작성
+        queue = [{"type": "test", "payload": {"text": "old"}, "retries": MAX_FLUSH_RETRIES + 1}]
+        queue_path = mod.QUEUE_PATH
+        with open(queue_path, "w", encoding="utf-8") as f:
+            json.dump(queue, f)
+
+        ch = SlackChannel()
+        sent, failed = flush_queue(ch, slack_config)
+        assert sent == 0
+        assert failed == 0  # dropped, not failed
+
+        # 큐 파일이 비어있어야 함
+        with open(queue_path, encoding="utf-8") as f:
+            remaining = json.load(f)
+        assert len(remaining) == 0
+
+
+# ---------- main() ----------
+
+
+class TestMain:
+    def test_no_args(self, tmp_plugin_dir, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["send-notification.py"])
+        result = main()
+        assert result == 2
+        captured = capsys.readouterr()
+        assert "Usage" in captured.err
+
+    def test_unknown_action(self, tmp_plugin_dir, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["send-notification.py", "unknown"])
+        result = main()
+        assert result == 2
+        captured = capsys.readouterr()
+        assert "알 수 없는 액션" in captured.err
+
+    def test_dispatches_status(self, tmp_plugin_dir, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["send-notification.py", "status"])
+        result = main()
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "알림 채널 상태" in captured.out
+
+    def test_dispatches_test(self, tmp_plugin_dir, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["send-notification.py", "test"])
+        result = main()
+        assert result == 2  # no channels configured
+
+
+# ---------- extract_section edge cases ----------
+
+
+class TestExtractSectionEdgeCases:
+    def test_crlf_line_endings(self):
+        md = "## 핵심 요약\r\n내용1\r\n\r\n## 주요 지표\r\n내용2"
+        assert _extract_section(md, "핵심 요약") == "내용1"
+
+    def test_trailing_whitespace_in_heading(self):
+        md = "## 핵심 요약   \n내용1\n\n## 주요 지표\n내용2"
+        assert _extract_section(md, "핵심 요약") == "내용1"
+
+    def test_last_section_no_trailing_heading(self):
+        md = "## 액션 아이템\n- item 1\n- item 2"
+        assert _extract_section(md, "액션 아이템") == "- item 1\n- item 2"

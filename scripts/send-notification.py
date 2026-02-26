@@ -22,6 +22,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -44,6 +45,7 @@ LOG_PATH = os.path.join(PLUGIN_DIR, "briefings", "schedule.log")
 
 MAX_RETRIES = 3
 MAX_QUEUE_SIZE = 50
+MAX_FLUSH_RETRIES = 10
 
 
 def log(message, channel="notify"):
@@ -116,7 +118,7 @@ class SlackChannel(NotificationChannel):
 
     def send(self, payload, config):
         url = self._get_webhook_url(config)
-        if not url:
+        if not url or not url.startswith("https://"):
             return False
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(
@@ -154,6 +156,7 @@ class SlackChannel(NotificationChannel):
             ("핵심 요약", "핵심 요약"),
             ("주요 지표", "주요 지표"),
             ("이상 탐지", "이상 탐지"),
+            ("인사이트", "인사이트"),
             ("액션 아이템", "액션 아이템"),
         ]
         for heading, label in sections:
@@ -199,7 +202,7 @@ class SlackChannel(NotificationChannel):
 
 def _extract_section(md, heading):
     """마크다운에서 ## heading 섹션 내용을 추출."""
-    pattern = rf"## {re.escape(heading)}\n(.*?)(?=\n## |\Z)"
+    pattern = rf"##\s+{re.escape(heading)}[ \t]*\r?\n(.*?)(?=\r?\n##\s|\Z)"
     m = re.search(pattern, md, re.DOTALL)
     return m.group(1).strip() if m else ""
 
@@ -255,8 +258,10 @@ def enqueue(msg_type, payload):
         os.makedirs(queue_dir, exist_ok=True)
 
     try:
-        with open(QUEUE_PATH, "w", encoding="utf-8") as f:
+        fd, tmp = tempfile.mkstemp(dir=queue_dir, suffix=".tmp")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(queue, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, QUEUE_PATH)
     except OSError as e:
         log(f"Failed to write queue: {e}")
 
@@ -278,18 +283,25 @@ def flush_queue(channel, config):
     sent = 0
     failed = []
     for entry in queue:
+        retries = entry.get("retries", 0)
+        if retries >= MAX_FLUSH_RETRIES:
+            log(f"Dropping message after {retries} retries (type={entry.get('type', '?')})", channel.name)
+            continue
         payload = entry.get("payload", {})
         if channel.send(payload, config):
             sent += 1
             log(f"Flushed queued message (type={entry.get('type', '?')})", channel.name)
         else:
-            entry["retries"] = entry.get("retries", 0) + 1
+            entry["retries"] = retries + 1
             failed.append(entry)
 
-    # 재작성
+    # atomic 재작성
     try:
-        with open(QUEUE_PATH, "w", encoding="utf-8") as f:
+        queue_dir = os.path.dirname(QUEUE_PATH)
+        fd, tmp = tempfile.mkstemp(dir=queue_dir, suffix=".tmp")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(failed, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, QUEUE_PATH)
     except OSError:
         pass
 
@@ -347,10 +359,10 @@ def action_test(config):
     for ch in channels:
         payload = ch.build_test_payload()
         if send_with_retry(ch, payload, config):
-            log(f"Test message sent.", ch.name)
+            log("Test message sent.", ch.name)
             print(f"[{ch.name}] 테스트 메시지 전송 성공")
         else:
-            log(f"Test message failed.", ch.name)
+            log("Test message failed.", ch.name)
             print(f"[{ch.name}] 테스트 메시지 전송 실패", file=sys.stderr)
             ok = False
     return 0 if ok else 1
@@ -367,8 +379,13 @@ def action_briefing(config, date=None):
         print(f"브리핑 파일을 찾을 수 없습니다: {briefing_path}", file=sys.stderr)
         return 1
 
-    with open(briefing_path, encoding="utf-8") as f:
-        content = f.read()
+    try:
+        with open(briefing_path, encoding="utf-8") as f:
+            content = f.read()
+    except OSError as e:
+        log(f"Failed to read briefing file: {e}")
+        print(f"브리핑 파일을 읽을 수 없습니다: {e}", file=sys.stderr)
+        return 1
 
     channels = get_active_channels(config)
     if not channels:

@@ -63,9 +63,15 @@ def ensure_best_python(test_import):
     if '/opt/homebrew/' not in sys.executable:
         reexec_with_better_python(test_import)
     else:
+        # exec() 대신 subprocess로 안전하게 import 가능 여부 테스트
         try:
-            exec(compile(test_import, '<test>', 'exec'))
-        except ImportError:
+            result = subprocess.run(
+                [sys.executable, '-c', test_import],
+                capture_output=True, timeout=10
+            )
+            if result.returncode != 0:
+                reexec_with_better_python(test_import)
+        except (OSError, subprocess.TimeoutExpired):
             reexec_with_better_python(test_import)
 
 

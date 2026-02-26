@@ -345,12 +345,12 @@ def check_bash(tool_input: dict):
     if not command:
         return
 
-    # 내장 스크립트 실행은 허용 (실제 실행 패턴만 허용, 주석/문자열 내 포함 방지)
-    for pattern in ALLOWED_SCRIPT_PATTERNS:
-        if pattern in command:
-            # 주석(#) 이후에만 패턴이 나타나면 우회 시도로 간주
-            before_pattern = command.split(pattern)[0]
-            if '#' not in before_pattern:
+    # 내장 스크립트 실행은 허용 (단일 명령어가 스크립트를 직접 실행하는 경우만)
+    # bash 주석(#) 이후 제거, 복합 명령(;, &&, ||)은 허용하지 않음
+    cmd_effective = re.split(r'(?<!\S)#', command.strip(), maxsplit=1)[0].strip()
+    if not re.search(r'[;&|]', cmd_effective):
+        for pattern in ALLOWED_SCRIPT_PATTERNS:
+            if pattern in cmd_effective:
                 return
 
     # 1) 전체 명령어를 텍스트 기반으로 먼저 검사 (빠른 경로)
@@ -378,9 +378,14 @@ def check_write(tool_input: dict):
     if not content:
         return
 
-    # 플러그인 내장 스크립트 수정은 허용 (경로 정규화로 .. 우회 방지)
+    # 플러그인 내장 스크립트 수정은 허용
+    # normpath로 .. 경로 정규화 후, 프로젝트 scripts/ 디렉토리 패턴 확인
     norm_path = os.path.normpath(file_path)
-    if "/smart-daily-briefing/scripts/" in norm_path:
+    hook_dir = os.path.dirname(os.path.abspath(__file__))
+    plugin_scripts_dir = os.path.normpath(os.path.join(os.path.dirname(hook_dir), "scripts"))
+    # 현재 프로젝트 또는 다른 설치 위치의 scripts/ 디렉토리 허용
+    if norm_path.startswith(plugin_scripts_dir + os.sep) or \
+       "/smart-daily-briefing/scripts/" in norm_path:
         return
 
     # Python 파일인 경우 AST 기반 정밀 검사

@@ -173,6 +173,13 @@ class TestBypassPrevention:
         })
         self._assert_denied(result)
 
+    def test_blocks_compound_command_bypass(self):
+        """복합 명령어로 스크립트 허용 우회 시도 차단"""
+        result = run_hook("Bash", {
+            "command": "python3 scripts/generate-pdf.py; python3 -c 'import matplotlib'"
+        })
+        self._assert_denied(result)
+
 
 class TestEdgeCases:
     """엣지 케이스"""

@@ -426,6 +426,12 @@ CONTENT_EOF
       exit 1
     fi
 
+    # 리포트 이름 검증 (install-report과 동일)
+    if ! echo "$REPORT_NAME" | grep -qE '^[a-zA-Z0-9_-]+$'; then
+      echo "ERROR: 리포트 이름은 영문, 숫자, 하이픈(-), 언더스코어(_)만 사용할 수 있습니다: ${REPORT_NAME}" >&2
+      exit 1
+    fi
+
     REPORT_LABEL="com.smart-briefing.report.${REPORT_NAME}"
     REPORT_RUN_SCRIPT="${PLUGIN_DIR}/scripts/run-report-${REPORT_NAME}.sh"
 

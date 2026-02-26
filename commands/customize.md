@@ -1,6 +1,6 @@
 ---
-description: 브리핑 개인화 설정을 조회하거나 변경합니다. 프리셋 적용, 섹션 on/off, 임계값 변경 등을 지원합니다.
-argument-hint: [show | preset 이름 | reset]
+description: 브리핑 개인화 설정을 조회하거나 변경합니다. 프리셋 적용, 섹션 on/off, 임계값 변경, 알림 설정 등을 지원합니다.
+argument-hint: [show | preset 이름 | reset | notification test | notification status | notification flush]
 ---
 
 # 브리핑 개인화 설정
@@ -82,4 +82,46 @@ config.json이 손상되었습니다. 기본 설정으로 표시합니다.
 ```
 브리핑 설정을 기본값으로 되돌렸습니다.
 config.json이 삭제되었습니다. 기본 프리셋(default)으로 동작합니다.
+```
+
+### 인수가 "notification test"인 경우
+
+알림 채널 연결을 테스트합니다. `scripts/send-notification.py test`를 실행합니다.
+
+```bash
+python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" test
+```
+
+성공 시:
+```
+[slack] 테스트 메시지 전송 성공
+```
+
+### 인수가 "notification status"인 경우
+
+알림 채널 상태와 큐 대기 메시지를 확인합니다.
+
+```bash
+python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" status
+```
+
+출력 예시:
+```
+알림 채널 상태:
+  [slack] 활성
+
+대기 중인 메시지: 없음
+```
+
+### 인수가 "notification flush"인 경우
+
+전송 실패로 큐에 쌓인 메시지를 재전송합니다.
+
+```bash
+python3 "${SMART_BRIEFING_ROOT}/scripts/send-notification.py" flush
+```
+
+출력 예시:
+```
+플러시 완료: 2건 전송, 0건 실패
 ```

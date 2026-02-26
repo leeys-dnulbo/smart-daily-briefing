@@ -400,3 +400,155 @@ $PYTHON "$PDF_SCRIPT" \
 설정 변경: /smart-briefing:customize 또는 자연어로 요청
 매일 자동으로 브리핑을 받아보시겠어요?
 ```
+
+---
+
+# 주간 요약 브리핑
+
+> `$ARGUMENTS`가 `weekly` 또는 `weekly YYYY-MM-DD`일 때 이 섹션을 실행합니다.
+
+주간 요약은 일일 sidecar JSON 파일 7일분을 집계하여 한 주의 전체 트렌드를 단일 문서로 제공합니다.
+
+## 사전 확인
+
+일일 브리핑과 동일하게 `get_ga4_data` MCP 도구 사용 가능 여부를 먼저 확인하세요.
+
+## W1단계: 대상 주 결정
+
+- `weekly` (인수 없음): 직전 완결 주의 월~일. 예: 오늘이 2026-02-26(목)이면 → 2026-02-16(월) ~ 2026-02-22(일)
+- `weekly YYYY-MM-DD`: 해당 날짜가 속한 주. 날짜가 월요일이 아니면 해당 주의 월요일로 정렬.
+
+대상 주의 시작일(월요일)과 종료일(일요일)을 결정하세요.
+
+## W2단계: sidecar 수집 및 집계
+
+### 2-1. sidecar 파일 수집
+
+`briefings/YYYY-MM-DD.json` 파일 7개(월~일)를 탐색합니다.
+
+각 sidecar 파일을 읽을 때:
+1. JSON 파싱
+2. `schema_version` 필드가 없으면 정규화 필요 (v1.10.0 이전 파일)
+3. `comparable_keys` 필드가 없으면 metrics 키 목록으로 자동 생성
+
+### 2-2. sidecar 부족 시 fallback
+
+- 7일 중 **4일 이상** sidecar가 존재하면: sidecar 기반 집계 진행 (누락일은 건너뜀)
+- 7일 중 **3일 이하**이면: GA4 직접 조회로 fallback
+  - 이번주: `date_range_start`=월요일, `date_range_end`=일요일
+  - 전주: 이전 7일 동일 범위
+  - 일일 브리핑 2단계와 동일한 방식으로 데이터 수집
+
+### 2-3. 메트릭 집계 규칙
+
+sidecar의 `metrics` 값을 집계합니다:
+
+- **합산(SUM) 메트릭**: sessions, totalUsers, newUsers, screenPageViews, eventCount 등
+  - 7일간 `current` 값의 합계
+- **비율/평균(RATE) 메트릭**: bounceRate, engagementRate, averageSessionDuration, sessionsPerUser 등
+  - 7일간 `sessions` 가중 평균: `Σ(metric × sessions) / Σ(sessions)`
+
+전주 비교: 동일한 방식으로 이전 7일(또는 sidecar의 `previous` 값)을 집계하여 전주 대비 변화율을 계산합니다.
+
+## W3단계: 주간 차트 생성
+
+차트 데이터를 `briefings/charts/weekly-{시작일}/data.json`에 저장합니다.
+
+```json
+{
+  "date": "{시작일}",
+  "date_range": "weekly",
+  "anomaly_threshold": 20,
+  "sections": {
+    "weekly_trend": {
+      "name": "주간 일별 추이",
+      "data": [
+        {"date": "2026-02-16", "sessions": 1200, "totalUsers": 800},
+        {"date": "2026-02-17", "sessions": 1350, "totalUsers": 920}
+      ]
+    },
+    "weekly_comparison": {
+      "name": "전주 대비 변화",
+      "data": {
+        "current": {"sessions": 8500, "bounceRate": 0.38},
+        "previous": {"sessions": 7800, "bounceRate": 0.42}
+      }
+    },
+    "traffic_sources": {
+      "name": "주간 트래픽 소스",
+      "data": [{"source": "google/organic", "sessions": 3800}]
+    },
+    "top_pages": {
+      "name": "주간 상위 페이지",
+      "data": [{"pagePath": "/", "screenPageViews": 12500}]
+    }
+  }
+}
+```
+
+차트 생성 스크립트 실행:
+```bash
+CHART_SCRIPT="${SMART_BRIEFING_ROOT}/scripts/generate-charts.py"
+[ -z "$SMART_BRIEFING_ROOT" ] && CHART_SCRIPT=$(find "$HOME/.claude" "$HOME/Library/Application Support/Claude" -name "generate-charts.py" -path "*smart-daily-briefing*" 2>/dev/null | head -1)
+[ -z "$CHART_SCRIPT" ] && CHART_SCRIPT="scripts/generate-charts.py"
+PYTHON=$(command -v /opt/homebrew/bin/python3.13 || command -v /opt/homebrew/bin/python3.12 || command -v /opt/homebrew/bin/python3.11 || command -v python3) && \
+$PYTHON "$CHART_SCRIPT" \
+  --input briefings/charts/weekly-{시작일}/data.json \
+  --output-dir briefings/charts/weekly-{시작일}/ \
+  --format auto
+```
+
+## W4단계: 주간 브리핑 작성
+
+```markdown
+# 주간 GA 브리핑 - {시작일} ~ {종료일}
+
+> 프리셋: {preset} | 기간: {시작일(월)} ~ {종료일(일)} | 데이터 소스: sidecar {N}일 / GA4 fallback
+
+## 주간 핵심 요약
+{7일간 전체 트렌드를 3~4문장으로 요약. 전주 대비 주요 변화 포인트.}
+
+## 주간 지표 추이
+| 지표 | 월 | 화 | 수 | 목 | 금 | 토 | 일 | 주간 합계/평균 | 전주 대비 |
+|------|---|---|---|---|---|---|---|-------------|----------|
+| 세션 | 1,200 | 1,350 | ... | ... | ... | ... | ... | 8,500 | +9.0% |
+| 이탈률 | 40% | 38% | ... | ... | ... | ... | ... | 38.5% | -3.5%p |
+
+{차트 이미지가 있으면: ![주간 일별 추이](charts/weekly-{시작일}/weekly_trend.{format})}
+
+## 전주 대비 변화
+{overview 변화율 차트 + 테이블}
+
+{차트 이미지가 있으면: ![전주 대비 변화](charts/weekly-{시작일}/weekly_comparison.{format})}
+
+## 주간 이상 탐지 요약
+{7일간 anomalies를 종합:
+- 반복 발생한 이상 탐지 (예: "3일 연속 이탈률 이상")
+- 최대 변화폭 기록
+- 패턴 분석}
+
+## 주간 인사이트
+{7일간 insights를 종합하여 중복 제거 후 핵심 5개}
+
+## 다음 주 주요 관찰 포인트
+{데이터 기반 다음 주 주의사항 3~4개}
+```
+
+## W5단계: 저장
+
+- 마크다운: `briefings/weekly-{시작일}.md`
+- JSON sidecar: `briefings/weekly-{시작일}.json`
+  - 일일 sidecar와 동일한 스키마 (`schema_version: "1.11"`)
+  - `date`에 시작일, `date_range`에 `"weekly"`
+  - `metrics`에 주간 집계 값
+- PDF: `briefings/weekly-{시작일}.pdf` (auto_pdf 설정에 따름)
+
+### 저장 후 안내
+
+```
+주간 브리핑이 briefings/weekly-{시작일}.md에 저장되었습니다.
+기간: {시작일} ~ {종료일} (sidecar {N}일 사용{fallback이면: ", GA4 fallback 사용"})
+
+매주 자동으로 주간 요약을 받아보시겠어요?
+→ /smart-briefing:schedule install-weekly [HH:MM] [요일]
+```

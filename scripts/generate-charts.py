@@ -829,6 +829,9 @@ SECTION_HANDLERS = {
     'events': 'generate_events',
     'overview': 'generate_overview_change',
     'user_behavior': 'generate_user_behavior',
+    # 주간 차트 (v1.11.0): 기존 핸들러 재사용
+    'weekly_trend': 'generate_daily_trend',
+    'weekly_comparison': 'generate_overview_change',
 }
 
 

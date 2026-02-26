@@ -342,6 +342,66 @@ CONTENT_EOF
     fi
     ;;
 
+  install-weekly)
+    WEEKLY_TIME="${2:-09:00}"
+    WEEKLY_DAY="${3:-monday}"
+    validate_time "$WEEKLY_TIME"
+    W_HOUR="${WEEKLY_TIME%%:*}"
+    W_MINUTE="${WEEKLY_TIME##*:}"
+    WEEKLY_WEEKDAY=$(day_to_weekday "$WEEKLY_DAY")
+    if [ -z "$WEEKLY_WEEKDAY" ]; then
+      echo "ERROR: 인식할 수 없는 요일입니다: ${WEEKLY_DAY}" >&2
+      exit 1
+    fi
+    WEEKLY_PLIST="com.smart-briefing.weekly"
+    WEEKLY_RUN_SCRIPT="${PLUGIN_DIR}/scripts/run-weekly-briefing.sh"
+
+    mkdir -p "${PLUGIN_DIR}/briefings"
+
+    # run-weekly-briefing.sh 생성
+    WEEKLY_CONTENT="$(cat << CONTENT_EOF
+#!/bin/bash
+# Smart Daily Briefing - 주간 브리핑 자동 실행 스크립트
+# 이 파일은 /smart-briefing:schedule install-weekly 에 의해 자동 생성됩니다.
+
+PLUGIN_DIR="${PLUGIN_DIR}"
+LOG_FILE="\${PLUGIN_DIR}/briefings/schedule.log"
+
+echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 주간 브리핑 시작" >> "\${LOG_FILE}"
+
+claude -p \\
+  --plugin-dir "\${PLUGIN_DIR}" \\
+  "/smart-briefing:briefing weekly" \\
+  >> "\${LOG_FILE}" 2>&1
+
+echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 주간 브리핑 완료" >> "\${LOG_FILE}"
+
+# Slack 알림 전송
+if [ -f "\${PLUGIN_DIR}/scripts/send-slack.sh" ]; then
+  bash "\${PLUGIN_DIR}/scripts/send-slack.sh" "\$(date '+%Y-%m-%d')" >> "\${LOG_FILE}" 2>&1
+fi
+CONTENT_EOF
+)"
+    generate_run_script "$WEEKLY_RUN_SCRIPT" "$WEEKLY_CONTENT"
+
+    # 스케줄 등록
+    install_schedule "$WEEKLY_PLIST" "$WEEKLY_RUN_SCRIPT" "$W_HOUR" "$W_MINUTE" "$WEEKLY_WEEKDAY"
+    WEEKLY_DAY_KR=$(weekday_to_korean "$WEEKLY_WEEKDAY")
+    echo "OK: 매주 ${WEEKLY_DAY_KR}요일 ${WEEKLY_TIME}에 주간 브리핑이 실행됩니다."
+    ;;
+
+  uninstall-weekly)
+    WEEKLY_PLIST="com.smart-briefing.weekly"
+    WEEKLY_RUN_SCRIPT="${PLUGIN_DIR}/scripts/run-weekly-briefing.sh"
+
+    if uninstall_schedule "$WEEKLY_PLIST"; then
+      rm -f "$WEEKLY_RUN_SCRIPT"
+      echo "OK: 주간 브리핑 스케줄이 제거되었습니다."
+    else
+      echo "NONE: 주간 브리핑 스케줄이 없습니다."
+    fi
+    ;;
+
   install-report)
     REPORT_NAME="${2:-}"
     FREQUENCY="${3:-daily}"
@@ -465,6 +525,31 @@ CONTENT_EOF
       echo "NONE: 일일 브리핑 스케줄이 없습니다."
     fi
 
+    # 주간 브리핑 상태
+    WEEKLY_PLIST="com.smart-briefing.weekly"
+    if schedule_exists "$WEEKLY_PLIST"; then
+      case "$PLATFORM" in
+        Darwin)
+          W_PLIST_PATH="${HOME}/Library/LaunchAgents/${WEEKLY_PLIST}.plist"
+          W_HOUR=$(plutil -extract StartCalendarInterval.Hour raw "$W_PLIST_PATH" 2>/dev/null)
+          W_MIN=$(plutil -extract StartCalendarInterval.Minute raw "$W_PLIST_PATH" 2>/dev/null)
+          W_WEEKDAY=$(plutil -extract StartCalendarInterval.Weekday raw "$W_PLIST_PATH" 2>/dev/null) || W_WEEKDAY=""
+          if [ -n "$W_WEEKDAY" ]; then
+            W_DAY_KR=$(weekday_to_korean "$W_WEEKDAY")
+            printf "WEEKLY: 매주 %s요일 %02d:%02d\n" "$W_DAY_KR" "$W_HOUR" "$W_MIN"
+          else
+            printf "WEEKLY: %02d:%02d\n" "$W_HOUR" "$W_MIN"
+          fi
+          ;;
+        Linux)
+          W_TIMER_INFO=$(systemctl --user show "${WEEKLY_PLIST}.timer" --property=TimersCalendar 2>/dev/null || echo "")
+          echo "WEEKLY: ${W_TIMER_INFO:-주간 스케줄 활성화됨}"
+          ;;
+      esac
+    else
+      echo "WEEKLY: 없음"
+    fi
+
     # Slack 상태
     SLACK_STATUS=$(check_slack_status)
     if [ "$SLACK_STATUS" = "ON" ]; then
@@ -526,6 +611,8 @@ CONTENT_EOF
     echo "사용법:"
     echo "  manage-schedule.sh install [HH:MM]                              일일 브리핑 스케줄"
     echo "  manage-schedule.sh uninstall                                    일일 브리핑 해제"
+    echo "  manage-schedule.sh install-weekly [HH:MM] [요일]                주간 브리핑 스케줄"
+    echo "  manage-schedule.sh uninstall-weekly                             주간 브리핑 해제"
     echo "  manage-schedule.sh install-report {name} {frequency} {time} [day]  리포트 스케줄"
     echo "  manage-schedule.sh uninstall-report {name}                      리포트 스케줄 해제"
     echo "  manage-schedule.sh status                                       전체 상태 확인"

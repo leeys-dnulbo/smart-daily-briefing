@@ -1,6 +1,6 @@
 ---
 description: 리포트 스케줄을 조회하거나 관리합니다. 자동 브리핑 스케줄 설치/해제도 지원합니다.
-argument-hint: [list | 리포트이름 | run 리포트이름 | install [HH:MM] | uninstall | install-report | uninstall-report 리포트이름 | status]
+argument-hint: [list | 리포트이름 | run 리포트이름 | install [HH:MM] | uninstall | install-weekly [HH:MM] [요일] | uninstall-weekly | install-report | uninstall-report 리포트이름 | status]
 ---
 
 # 스케줄 관리
@@ -154,6 +154,26 @@ macOS launchd를 이용하여 매일 자동 브리핑 스케줄을 설치합니�
 2. 결과를 안내합니다:
    - "OK"이면: "자동 브리핑 스케줄이 해제되었습니다."
    - "NONE"이면: "설정된 스케줄이 없습니다."
+
+### 인수가 "install-weekly" 또는 "install-weekly HH:MM [요일]"인 경우
+
+매주 자동 주간 브리핑 스케줄을 설치합니다. 기본값: 매주 월요일 09:00.
+
+1. 시간/요일이 지정되지 않으면 기본값 사용 (09:00, 월요일)
+2. Bash 도구로 실행합니다:
+   ```bash
+   bash scripts/manage-schedule.sh install-weekly {HH:MM} {요일}
+   ```
+   요일은 영문(monday, mon) 또는 한국어(월)를 지원합니다.
+3. 결과를 안내합니다.
+
+### 인수가 "uninstall-weekly"인 경우
+
+주간 브리핑 스케줄을 해제합니다.
+
+```bash
+bash scripts/manage-schedule.sh uninstall-weekly
+```
 
 ### 인수가 "status"인 경우
 

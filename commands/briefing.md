@@ -1,5 +1,17 @@
 ---
-description: AI 일일 브리핑을 생성합니다. config.json 설정에 따라 개인화된 GA4 브리핑을 제공합니다.
+description: AI 브리핑을 생성합니다. weekly로 주간 요약이 가능합니다.
+argument-hint: "[daily | weekly | weekly YYYY-MM-DD]"
+---
+
+# 브리핑 생성
+
+## 인수 처리
+
+`$ARGUMENTS`를 확인하여 모드를 결정합니다:
+- 인수 없음 또는 `daily`: **일일 브리핑** (아래 "일일 브리핑 생성" 섹션)
+- `weekly`: **주간 요약 브리핑** (아래 "주간 요약 브리핑" 섹션). 직전 완결 주(월~일) 기준.
+- `weekly YYYY-MM-DD`: 해당 날짜가 속한 주의 주간 요약. 날짜는 해당 주의 월요일로 정렬됨.
+
 ---
 
 # 일일 브리핑 생성
@@ -300,6 +312,7 @@ Unicode 블록 차트가 포함된 브리핑을 터미널에 그대로 표시합
 
 ```json
 {
+  "schema_version": "1.11",
   "date": "YYYY-MM-DD",
   "preset": "default",
   "date_range": "7daysAgo",
@@ -319,6 +332,7 @@ Unicode 블록 차트가 포함된 브리핑을 터미널에 그대로 표시합
   "insights": [
     { "severity": "info", "text": "모바일 트래픽이 54%로 전주 대비 3.2%p 증가" }
   ],
+  "comparable_keys": ["sessions", "totalUsers", "newUsers", "bounceRate", "averageSessionDuration", "screenPageViews", "engagementRate"],
   "top_sources": [
     { "source": "google/organic", "sessions": 1842, "share_pct": 45.2 }
   ],
@@ -329,9 +343,11 @@ Unicode 블록 차트가 포함된 브리핑을 터미널에 그대로 표시합
 ```
 
 **sidecar JSON 생성 규칙:**
+- `schema_version`: 반드시 `"1.11"` 문자열.
 - `metrics`: overview 섹션의 현재/이전 기간 값과 변화율. 이전 기간이 없으면 `previous`와 `change_pct`를 `null`로.
 - `anomalies`: `anomaly_threshold` 이상 변화한 지표 목록. severity는 threshold 기준: threshold 이상 ~ threshold × 1.5 미만 = "warning", threshold × 1.5 이상 = "critical".
 - `insights`: 브리핑에서 도출한 인사이트 목록 (최대 `max_insights`개).
+- `comparable_keys`: metrics의 키 목록 (정렬됨). 향후 비교 기능에서 사용.
 - `top_sources`: traffic_sources 섹션 상위 5개. 섹션이 비활성이면 빈 배열.
 - `top_pages`: top_pages 섹션 상위 5개. 섹션이 비활성이면 빈 배열.
 

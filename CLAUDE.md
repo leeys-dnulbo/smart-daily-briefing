@@ -29,12 +29,12 @@ OpenClaw 사용자는 docs/openclaw-setup.md를 참고하세요.
 - OpenClaw 스케줄 관리 (schedule-helper)
 
 ### 커맨드 (Claude Code 전용)
-- `/smart-briefing:briefing` - 일일 종합 브리핑 생성
+- `/smart-briefing:briefing` - 브리핑 생성 (daily/weekly)
 - `/smart-briefing:customize` - 브리핑 설정 조회/변경
 - `/smart-briefing:reports` - 저장된 리포트 목록
-- `/smart-briefing:schedule` - 스케줄 관리
+- `/smart-briefing:schedule` - 스케줄 관리 (일간/주간)
 - `/smart-briefing:export` - 브리핑 PDF 내보내기
-- `/smart-briefing:setup` - 초기 설정 안내
+- `/smart-briefing:setup` - 초기 설정 안내 + 환경 진단 (healthcheck)
 
 ## 파일 저장 위치
 

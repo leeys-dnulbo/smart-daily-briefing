@@ -106,8 +106,8 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 
 | 커맨드 | 설명 |
 |--------|------|
-| `/smart-briefing:setup` | 초기 설정 안내 (MCP 연결 확인) |
-| `/smart-briefing:briefing` | GA4 데이터를 종합 분석하여 일일 브리핑 생성 |
+| `/smart-briefing:setup` | 초기 설정 안내 (MCP 연결 확인, 헬스체크) |
+| `/smart-briefing:briefing` | GA4 브리핑 생성 (daily/weekly) |
 | `/smart-briefing:customize` | 브리핑 개인화 설정 조회/변경 |
 | `/smart-briefing:reports` | 저장된 리포트 목록 조회 |
 | `/smart-briefing:schedule` | 리포트 스케줄 조회/설정/실행 |
@@ -142,14 +142,35 @@ OpenClaw에서는 커맨드 대신 자연어로 동일한 기능을 사용합니
 "매일 아침 9시에 받고 싶어"
 ```
 
+### 주간 브리핑
+
+일주일간의 데이터를 종합 분석하는 주간 브리핑을 생성합니다:
+
+```
+/smart-briefing:briefing weekly          # 이번 주 주간 브리핑
+/smart-briefing:briefing weekly 2026-02-23  # 특정 주 브리핑
+```
+
+일별 sidecar 데이터가 4일 이상 있으면 sidecar 기반으로 집계하고, 부족하면 GA4 직접 조회로 자동 전환합니다.
+
+### 환경 진단 (헬스체크)
+
+```
+/smart-briefing:setup healthcheck        # 환경 진단 실행
+/smart-briefing:setup healthcheck --json # JSON 형식 출력
+```
+
+Python 환경, 필수 패키지, 폰트, Slack 연결 등 8개 항목을 점검합니다.
+
 ### 자동 브리핑 스케줄
 
 #### Claude Code (macOS launchd)
 
 ```
-/smart-briefing:schedule install 09:00   # 매일 09:00에 자동 브리핑
-/smart-briefing:schedule status          # 상태 확인
-/smart-briefing:schedule uninstall       # 해제
+/smart-briefing:schedule install 09:00         # 매일 09:00에 자동 브리핑
+/smart-briefing:schedule install-weekly 09:00   # 매주 월요일 09:00에 주간 브리핑
+/smart-briefing:schedule status                 # 상태 확인
+/smart-briefing:schedule uninstall              # 해제
 ```
 
 #### OpenClaw (내장 cron)
@@ -233,6 +254,8 @@ smart-daily-briefing/
 │   └── export.md
 ├── scripts/
 │   ├── utils.py               # 공통 유틸리티 (폰트, atomic write 등)
+│   ├── sidecar_schema.py      # JSON sidecar 스키마 검증기
+│   ├── healthcheck.py         # 환경 진단 (헬스체크)
 │   ├── generate-charts.py     # 차트 이미지 생성 (matplotlib/SVG)
 │   ├── generate-pdf.py        # 브리핑 PDF 내보내기 (weasyprint)
 │   ├── manage-schedule.sh     # 자동 브리핑 스케줄 관리 (launchd/systemd)
@@ -244,7 +267,9 @@ smart-daily-briefing/
 ├── tests/                     # pytest 테스트
 │   ├── conftest.py
 │   ├── test_utils.py
-│   └── test_validate_chart_code.py
+│   ├── test_validate_chart_code.py
+│   ├── test_sidecar_schema.py
+│   └── test_healthcheck.py
 ├── fonts/
 │   ├── NanumGothic-Regular.ttf # 번들 한국어 폰트 (컨테이너 환경용)
 │   └── OFL.txt                # SIL Open Font License

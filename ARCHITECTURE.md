@@ -287,3 +287,49 @@ flowchart TB
 `tests/` 디렉토리에 pytest 기반 테스트:
 - `test_utils.py`: safe_write, 폰트 검색, auto_install (17 tests)
 - `test_validate_chart_code.py`: AST 검증 차단/허용/엣지케이스 (18 tests)
+
+---
+
+## v1.11.0 아키텍처 변경사항
+
+### JSON sidecar 스키마 v1.11 (sidecar_schema.py)
+
+순수 Python 검증기. `jsonschema` 의존성 없이 동작:
+
+| 함수 | 역할 |
+|------|------|
+| `validate_sidecar(data)` | 스키마 검증 (CRITICAL vs 권장 필드 구분) |
+| `normalize_sidecar(data)` | v1.10.0 sidecar를 v1.11 형식으로 정규화 |
+| `aggregate_sidecars(sidecars)` | 일별 sidecar를 주간 단위로 집계 (SUM/가중평균) |
+
+스키마에 `schema_version`, `comparable_keys` 필드 추가. v1.12.0 비교 기능의 기반.
+
+### 주간 브리핑 파이프라인
+
+```
+W1: 주간 범위 결정 (월~일 또는 지정 날짜 기준)
+W2: sidecar 수집 (4/7 이상 → 집계 / 미만 → GA4 fallback)
+W3: 차트 생성 (weekly_trend, weekly_comparison)
+W4: 마크다운 생성 (briefings/weekly-YYYY-MM-DD.md)
+W5: PDF 자동 생성 (설정에 따라)
+```
+
+차트 생성 시 기존 핸들러(`daily_trend`, `overview_change`)를 재사용하여 코드 중복을 방지.
+
+### 환경 진단 (healthcheck.py)
+
+`HealthCheckItem` 기반 확장 가능한 진단 시스템 (8개 항목):
+
+| 항목 | key | 진단 대상 |
+|------|-----|-----------|
+| config.json | `config` | 설정 파일 유효성 |
+| Python 환경 | `python` | 버전 ≥ 3.9 |
+| matplotlib | `matplotlib` | 차트 라이브러리 |
+| weasyprint | `weasyprint` | PDF 라이브러리 |
+| Slack webhook | `slack` | 연결 테스트 |
+| sidecar 파일 | `sidecar` | 최근 7일 존재 여부 |
+| 한국어 폰트 | `font` | 폰트 탐색 |
+| 필수 스크립트 | `scripts` | 4개 스크립트 존재 |
+
+CLI: `python3 scripts/healthcheck.py [--json] [--check key1,key2]`
+모듈: `run_healthcheck(plugin_dir, checks)` → `[(key, name, status, message)]`

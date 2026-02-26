@@ -1,17 +1,67 @@
 {
+  "_comment_file": "OpenClaw 설정 예시 파일. ~/.openclaw/openclaw.json에 복사하여 사용하세요.",
+  "_comment_env": "민감한 값은 $ENV_VAR 형식으로 OS 환경 변수를 참조합니다. 직접 값을 넣지 마세요.",
+
   "mcpServers": {
+    "_comment_mcp": "GA4 데이터 조회용 MCP 서버. pipx로 google-analytics-mcp 패키지를 실행합니다.",
     "ga4-analytics": {
       "command": "pipx",
       "args": ["run", "google-analytics-mcp"],
       "env": {
-        "GOOGLE_APPLICATION_CREDENTIALS": "/path/to/your-service-account.json",
-        "GA4_PROPERTY_ID": "your-property-id"
+        "_comment_credentials": "서비스 계정 JSON 파일 경로. chmod 600 권한 설정을 권장합니다.",
+        "GOOGLE_APPLICATION_CREDENTIALS": "$GOOGLE_APPLICATION_CREDENTIALS",
+        "_comment_property_id": "GA4 속성 ID. Google Analytics 관리 > 속성 설정에서 확인 가능합니다.",
+        "GA4_PROPERTY_ID": "$GA4_PROPERTY_ID"
       }
     }
   },
+
   "skills": {
+    "_comment_skills": "스킬 디렉토리를 등록합니다. extraDirs에 smart-daily-briefing/skills 경로를 지정하세요.",
     "load": {
       "extraDirs": ["/path/to/smart-daily-briefing/skills"]
     }
+  },
+
+  "cron": {
+    "_comment_cron": "내장 cron 스케줄러 설정. timezone은 IANA 타임존 형식을 사용합니다.",
+    "timezone": "Asia/Seoul",
+    "jobs": [
+      {
+        "_comment_job": "일일 GA4 브리핑 자동 생성 예시. 매일 아침 9시(KST)에 실행됩니다.",
+        "name": "GA4-daily-briefing",
+        "schedule": "0 9 * * *",
+        "session": "isolated",
+        "message": "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘. config.json 설정에 따라 활성 섹션의 데이터를 수집하고 분석해."
+      }
+    ]
+  },
+
+  "channels": {
+    "_comment_channels": "알림 채널 설정. 스케줄 실행 결과를 메시징 서비스로 전송할 수 있습니다.",
+
+    "slack": {
+      "_comment_slack": "Slack Incoming Webhook URL. https://hooks.slack.com/services/... 형식입니다. Slack App 설정에서 Webhook을 생성하세요.",
+      "enabled": false,
+      "webhook_url": "$SLACK_WEBHOOK_URL"
+    },
+
+    "telegram": {
+      "_comment_telegram": "Telegram Bot 연동 (향후 지원 예정). @BotFather에서 봇 토큰을 발급받으세요.",
+      "enabled": false,
+      "bot_token": "$TELEGRAM_BOT_TOKEN",
+      "chat_id": "$TELEGRAM_CHAT_ID"
+    },
+
+    "discord": {
+      "_comment_discord": "Discord Webhook 연동 (향후 지원 예정). 서버 설정 > 연동 > 웹후크에서 URL을 생성하세요.",
+      "enabled": false,
+      "webhook_url": "$DISCORD_WEBHOOK_URL"
+    }
+  },
+
+  "security": {
+    "_comment_security": "보안 관련 설정. allowedUsers로 접근 가능한 사용자를 제한하세요.",
+    "allowedUsers": []
   }
 }

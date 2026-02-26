@@ -14,74 +14,25 @@ Usage:
 """
 
 import argparse
-import glob
 import os
 import platform
 import re
-import subprocess
 import sys
 
-# ---------- Python 자동 전환 ----------
-# 항상 homebrew Python을 우선 사용 (시스템 Python은 libgobject 등 누락 가능)
-_HOMEBREW_PYTHONS = [
-    '/opt/homebrew/bin/python3.13',
-    '/opt/homebrew/bin/python3.12',
-    '/opt/homebrew/bin/python3.11',
-]
-_OTHER_PYTHONS = [
-    '/usr/local/bin/python3',
-    '/usr/bin/python3',
-]
+# ---------- 공통 유틸리티 ----------
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from utils import ensure_best_python, auto_install, find_korean_font, get_font_family_name, get_mono_family_name
 
-def _reexec_with_better_python():
-    """더 좋은 Python(homebrew 우선)으로 재실행"""
-    candidates = _HOMEBREW_PYTHONS + _OTHER_PYTHONS
-    for py in candidates:
-        if py == sys.executable or not os.path.exists(py):
-            continue
-        try:
-            result = subprocess.run(
-                [py, '-c', 'from weasyprint import HTML'],
-                capture_output=True, timeout=10
-            )
-            if result.returncode == 0:
-                print(f"  Re-exec with: {py}", file=sys.stderr)
-                os.execv(py, [py] + sys.argv)
-        except (OSError, subprocess.TimeoutExpired):
-            continue
-
-# homebrew Python이 아니면 homebrew로 재실행 시도
-if '/opt/homebrew/' not in sys.executable:
-    _reexec_with_better_python()
-# homebrew인데 weasyprint이 없으면 다른 Python으로 재실행
-else:
-    try:
-        from weasyprint import HTML as _wp_test
-        del _wp_test
-    except ImportError:
-        _reexec_with_better_python()
+# ---------- Python 자동 전환 (weasyprint 기준) ----------
+ensure_best_python('from weasyprint import HTML')
 
 # ---------- 의존성 감지 & 자동 설치 ----------
-def _auto_install(*packages):
-    """미설치 패키지를 자동으로 pip install 시도"""
-    for attempt in range(2):
-        try:
-            cmd = [sys.executable, '-m', 'pip', 'install', '--quiet']
-            if attempt == 1:
-                cmd.append('--break-system-packages')
-            cmd.extend(packages)
-            subprocess.check_call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            continue
-    return False
-
 try:
     from weasyprint import HTML
     HAS_WEASYPRINT = True
 except ImportError:
     print("weasyprint 미설치 → 자동 설치 시도...", file=sys.stderr)
-    if _auto_install('weasyprint'):
+    if auto_install('weasyprint'):
         try:
             from weasyprint import HTML
             HAS_WEASYPRINT = True
@@ -95,7 +46,7 @@ try:
     HAS_MARKDOWN = True
 except ImportError:
     print("markdown 미설치 → 자동 설치 시도...", file=sys.stderr)
-    if _auto_install('markdown'):
+    if auto_install('markdown'):
         try:
             import markdown
             HAS_MARKDOWN = True
@@ -114,71 +65,15 @@ POSITIVE_COLOR = '#10B981'
 NEGATIVE_COLOR = '#EF4444'
 
 
-# ---------- 한국어 폰트 ----------
-
-# 1순위: 플러그인 번들 폰트 (컨테이너 환경에서도 동작)
-# 2순위: macOS 시스템 폰트 (AppleGothic.ttf 우선, AppleSDGothicNeo.ttc는 CFF-in-TTC 문제)
-# 3순위: Linux 시스템 폰트
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_BUNDLED_FONT = os.path.join(_SCRIPT_DIR, '..', 'fonts', 'NanumGothic-Regular.ttf')
-
-FONT_SEARCH = {
-    'Darwin': [
-        '/System/Library/Fonts/Supplemental/AppleGothic.ttf',
-        '/Library/Fonts/NanumGothic.otf',
-        '/Library/Fonts/NanumGothic.ttf',
-        '/System/Library/Fonts/AppleSDGothicNeo.ttc',
-    ],
-    'Linux': [
-        '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-        '/usr/share/fonts/nanum/NanumGothic.ttf',
-        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
-        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-    ],
-}
-
-
-def _find_font_file(candidates):
-    """한국어 폰트 파일 찾기 (번들 폰트 → 시스템 폰트 → fc-list)"""
-    # 1순위: 플러그인 번들 폰트
-    bundled = os.path.abspath(_BUNDLED_FONT)
-    if os.path.exists(bundled):
-        return bundled
-
-    # 2순위: 플랫폼별 시스템 폰트
-    for path in candidates:
-        matches = glob.glob(path)
-        if matches:
-            return matches[0]
-        if os.path.exists(path):
-            return path
-
-    # 3순위: fc-list fallback
-    try:
-        result = subprocess.run(
-            ['fc-list', ':lang=ko', 'file'],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            for line in result.stdout.strip().split('\n'):
-                path = line.strip().rstrip(':').strip()
-                if path and os.path.exists(path):
-                    return path
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-
-    return None
-
+# ---------- 한국어 폰트 (utils.py 활용) ----------
 
 def get_font_face_css():
     """@font-face CSS를 생성하여 weasyprint가 한국어 폰트를 확실히 찾도록 함"""
     system = platform.system()
-    candidates = FONT_SEARCH.get(system, [])
-    font_path = _find_font_file(candidates)
+    font_path = find_korean_font()
 
     if not font_path:
-        # 폰트 파일을 찾지 못하면 font-family 이름만 사용 (fallback)
-        return '', _get_font_family_name(system), _get_mono_family_name(system)
+        return '', get_font_family_name(system), get_mono_family_name(system)
 
     font_uri = f'file://{os.path.abspath(font_path)}'
 
@@ -196,28 +91,10 @@ def get_font_face_css():
     font-style: normal;
   }}"""
 
-    font_family = f"'BriefingFont', {_get_font_family_name(system)}"
-    mono_family = f"{_get_mono_family_name(system)}"
+    font_family = f"'BriefingFont', {get_font_family_name(system)}"
+    mono_family = f"{get_mono_family_name(system)}"
 
     return font_face_css, font_family, mono_family
-
-
-def _get_font_family_name(system):
-    """CSS font-family 이름 (fallback용)"""
-    if system == 'Darwin':
-        return "'Apple SD Gothic Neo', 'AppleGothic', sans-serif"
-    elif system == 'Linux':
-        return "'Noto Sans KR', 'NanumGothic', sans-serif"
-    return "sans-serif"
-
-
-def _get_mono_family_name(system):
-    """코드/Unicode 블록용 모노스페이스 font-family"""
-    if system == 'Darwin':
-        return "'Menlo', 'Apple SD Gothic Neo', monospace"
-    elif system == 'Linux':
-        return "'D2Coding', 'Noto Sans Mono CJK KR', monospace"
-    return "monospace"
 
 
 # ---------- HTML 템플릿 ----------

@@ -75,34 +75,55 @@ openclaw cron add --name "GA4-report-{리포트파일명}" \
 openclaw cron remove "GA4-report-{리포트파일명}"
 ```
 
-## 채널 전송 연동 (향후 지원 예정)
-
-> **주의**: 현재 OpenClaw API 키 직렬화 보안 이슈(#11202)로 인해 이 기능은 권장하지 않습니다.
-> 해당 이슈가 해결된 후 안전하게 사용할 수 있습니다. 아래는 향후 지원 예정 형식입니다.
+## 채널 전송 연동 (조건부 지원)
 
 OpenClaw 채널이 설정된 경우, 스케줄 실행 결과를 메시징 채널로 전송할 수 있습니다.
-아래 중 사용하는 채널에 맞는 하나를 선택하세요:
+채널별 지원 상태는 아래 표를 참고하세요:
+
+| 채널 | 상태 | 비고 |
+|------|------|------|
+| Slack | 지원 | Incoming Webhook 방식 |
+| Telegram | 향후 지원 예정 | OpenClaw 채널 API 안정화 후 |
+| Discord | 향후 지원 예정 | OpenClaw 채널 API 안정화 후 |
+
+> **보안 참고**: 채널 전송 시 Webhook URL 등 민감한 값은 반드시 OS 환경 변수를 사용하세요.
+> `openclaw.json`에 직접 기입하면 LLM 프롬프트에 노출될 수 있습니다.
+
+### Slack으로 전송
+
+Slack Incoming Webhook을 사용하여 브리핑 결과를 전송합니다:
 
 ```bash
-# Telegram으로 전송
+# 환경 변수에 Webhook URL 등록 (사전 준비)
+# ~/.zshrc 또는 ~/.bashrc에 추가:
+# export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/T.../B.../xxx"
+
 openclaw cron add --name "GA4-daily-briefing" \
   --cron "0 9 * * *" --tz "Asia/Seoul" \
   --session isolated \
   --message "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘." \
-  --announce --channel telegram --to "chat:{chat_id}"
+  --announce --channel slack --to "webhook:${SLACK_WEBHOOK_URL}"
 ```
 
+### Telegram으로 전송 (향후 지원 예정)
+
 ```bash
-# Slack으로 전송
 openclaw cron add --name "GA4-daily-briefing" \
   --cron "0 9 * * *" --tz "Asia/Seoul" \
   --session isolated \
   --message "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘." \
-  --announce --channel slack --to "channel:{channel_id}"
+  --announce --channel telegram --to "chat:${TELEGRAM_CHAT_ID}"
 ```
 
-> **보안 참고**: 채널 전송을 설정하기 전에 OpenClaw의 채널 토큰 보안 설정을 확인하세요.
-> `openclaw.json`의 채널 토큰이 LLM 프롬프트에 노출될 수 있으므로, OS 환경 변수 사용을 권장합니다.
+### Discord로 전송 (향후 지원 예정)
+
+```bash
+openclaw cron add --name "GA4-daily-briefing" \
+  --cron "0 9 * * *" --tz "Asia/Seoul" \
+  --session isolated \
+  --message "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘." \
+  --announce --channel discord --to "webhook:${DISCORD_WEBHOOK_URL}"
+```
 
 ## 응답 형식
 

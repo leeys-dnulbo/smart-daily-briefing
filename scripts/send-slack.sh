@@ -14,6 +14,11 @@ PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG_FILE="$PLUGIN_DIR/config.json"
 BRIEFING_FILE="$PLUGIN_DIR/briefings/${DATE}.md"
 LOG_FILE="$PLUGIN_DIR/briefings/schedule.log"
+QUEUE_FILE="$PLUGIN_DIR/briefings/notification-queue.json"
+LOCK_FILE="$PLUGIN_DIR/briefings/.notification-queue.lock"
+
+MAX_RETRIES=3
+MAX_QUEUE_SIZE=50
 
 log() {
   if [ -d "$(dirname "$LOG_FILE")" ]; then
@@ -21,7 +26,263 @@ log() {
   fi
 }
 
+# ---------------------------------------------------------------------------
+# flock shim: macOS does not ship flock. If the flock command is missing we
+# fall back to a portable mkdir-based lock that is still safe against races.
+# The shim exposes the same interface used below: flock -x <fd>  /  flock -u <fd>
+# ---------------------------------------------------------------------------
+if ! command -v flock >/dev/null 2>&1; then
+  _lock_acquired=0
+
+  _mkdir_lock() {
+    local retries=0
+    while ! mkdir "$LOCK_FILE.d" 2>/dev/null; do
+      retries=$((retries + 1))
+      if [ "$retries" -ge 30 ]; then
+        log "WARNING: Could not acquire lock after 30 attempts"
+        return 1
+      fi
+      sleep 0.1
+    done
+    _lock_acquired=1
+    # Ensure the lock directory is removed on exit
+    trap '_mkdir_unlock' EXIT
+    return 0
+  }
+
+  _mkdir_unlock() {
+    if [ "$_lock_acquired" -eq 1 ]; then
+      rmdir "$LOCK_FILE.d" 2>/dev/null || true
+      _lock_acquired=0
+    fi
+  }
+
+  _FLOCK_SHIM=1
+else
+  _FLOCK_SHIM=0
+fi
+
+# ---------------------------------------------------------------------------
+# with_queue_lock <command...>
+#   Runs a command while holding an exclusive lock on the queue file.
+# ---------------------------------------------------------------------------
+with_queue_lock() {
+  if [ "$_FLOCK_SHIM" -eq 1 ]; then
+    _mkdir_lock || { log "WARNING: Proceeding without lock"; "$@"; return $?; }
+    "$@"
+    local rc=$?
+    _mkdir_unlock
+    return $rc
+  else
+    (
+      flock -x 200 || { log "WARNING: Proceeding without lock"; "$@"; return $?; }
+      "$@"
+    ) 200>"$LOCK_FILE"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# send_with_retry <payload> <webhook_url>
+#   Attempts to POST the payload up to MAX_RETRIES times with exponential
+#   backoff (1s, 2s, 4s). Returns 0 on success, 1 on final failure.
+#   On success, sets LAST_HTTP_STATUS to the HTTP code.
+# ---------------------------------------------------------------------------
+LAST_HTTP_STATUS=""
+
+send_with_retry() {
+  local payload="$1"
+  local webhook_url="$2"
+  local attempt=1
+  local backoff=1
+
+  while [ "$attempt" -le "$MAX_RETRIES" ]; do
+    LAST_HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+      -X POST -H "Content-Type: application/json" \
+      -d "$payload" \
+      "$webhook_url") || LAST_HTTP_STATUS="000"
+
+    if [ "$LAST_HTTP_STATUS" = "200" ]; then
+      return 0
+    fi
+
+    log "Attempt $attempt/$MAX_RETRIES failed (HTTP ${LAST_HTTP_STATUS}). Retrying in ${backoff}s..."
+    sleep "$backoff"
+    attempt=$((attempt + 1))
+    backoff=$((backoff * 2))
+  done
+
+  log "All $MAX_RETRIES attempts failed (last HTTP ${LAST_HTTP_STATUS})."
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# enqueue_payload <type> <payload>
+#   Appends a message to the notification queue. Trims oldest entries if the
+#   queue exceeds MAX_QUEUE_SIZE.
+# ---------------------------------------------------------------------------
+enqueue_payload() {
+  local msg_type="$1"
+  local payload="$2"
+
+  _do_enqueue() {
+    python3 << PYEOF "$QUEUE_FILE" "$msg_type" "$payload" "$MAX_QUEUE_SIZE"
+import json, sys, os
+from datetime import datetime, timezone
+
+queue_file = sys.argv[1]
+msg_type   = sys.argv[2]
+payload    = sys.argv[3]
+max_size   = int(sys.argv[4])
+
+# Load existing queue
+queue = []
+if os.path.isfile(queue_file):
+    try:
+        with open(queue_file, "r", encoding="utf-8") as f:
+            queue = json.load(f)
+        if not isinstance(queue, list):
+            queue = []
+    except (json.JSONDecodeError, OSError):
+        queue = []
+
+# Parse the payload string back to a JSON object
+try:
+    payload_obj = json.loads(payload)
+except json.JSONDecodeError:
+    payload_obj = payload
+
+# Append new entry
+entry = {
+    "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "type": msg_type,
+    "payload": payload_obj
+}
+queue.append(entry)
+
+# Trim to max size (drop oldest)
+if len(queue) > max_size:
+    queue = queue[-max_size:]
+
+# Write atomically via temp file
+tmp = queue_file + ".tmp"
+with open(tmp, "w", encoding="utf-8") as f:
+    json.dump(queue, f, ensure_ascii=False, indent=2)
+os.replace(tmp, queue_file)
+
+print(f"Queued. Total entries: {len(queue)}", file=sys.stderr)
+PYEOF
+  }
+
+  with_queue_lock _do_enqueue
+  log "Payload enqueued (type=$msg_type). Queue: $QUEUE_FILE"
+}
+
+# ---------------------------------------------------------------------------
+# flush_queue <webhook_url>
+#   If the queue file exists, attempts to send each queued message. Messages
+#   that still fail are kept in the queue.
+# ---------------------------------------------------------------------------
+flush_queue() {
+  local webhook_url="$1"
+
+  [ -f "$QUEUE_FILE" ] || return 0
+
+  _do_flush() {
+    # Read the queue and try to send each entry. Write back only the failures.
+    python3 << PYEOF "$QUEUE_FILE"
+import json, sys, os
+
+queue_file = sys.argv[1]
+
+if not os.path.isfile(queue_file):
+    sys.exit(0)
+
+try:
+    with open(queue_file, "r", encoding="utf-8") as f:
+        queue = json.load(f)
+except (json.JSONDecodeError, OSError):
+    sys.exit(0)
+
+if not isinstance(queue, list) or len(queue) == 0:
+    sys.exit(0)
+
+# Output each entry as a JSON line: {index}\t{payload_json}
+for i, entry in enumerate(queue):
+    payload = entry.get("payload", {})
+    if isinstance(payload, str):
+        print(f"{i}\t{payload}")
+    else:
+        print(f"{i}\t{json.dumps(payload, ensure_ascii=False)}")
+PYEOF
+  }
+
+  local queue_lines
+  queue_lines=$(with_queue_lock _do_flush 2>/dev/null) || return 0
+
+  if [ -z "$queue_lines" ]; then
+    return 0
+  fi
+
+  log "Flushing notification queue..."
+
+  local failed_indices=""
+  local total=0
+  local sent=0
+
+  while IFS=$'\t' read -r idx payload_json; do
+    total=$((total + 1))
+    if send_with_retry "$payload_json" "$webhook_url"; then
+      sent=$((sent + 1))
+      log "Queue entry #$idx sent successfully."
+    else
+      failed_indices="$failed_indices $idx"
+      log "Queue entry #$idx still failing. Keeping in queue."
+    fi
+  done <<< "$queue_lines"
+
+  # Rewrite queue keeping only failed entries
+  _do_rewrite() {
+    python3 << PYEOF "$QUEUE_FILE" "$failed_indices"
+import json, sys, os
+
+queue_file = sys.argv[1]
+failed_raw = sys.argv[2].strip()
+
+if not os.path.isfile(queue_file):
+    sys.exit(0)
+
+try:
+    with open(queue_file, "r", encoding="utf-8") as f:
+        queue = json.load(f)
+except (json.JSONDecodeError, OSError):
+    sys.exit(0)
+
+if not failed_raw:
+    # All succeeded - remove queue file
+    os.remove(queue_file)
+    sys.exit(0)
+
+failed_set = set(int(x) for x in failed_raw.split())
+remaining = [entry for i, entry in enumerate(queue) if i in failed_set]
+
+if not remaining:
+    os.remove(queue_file)
+else:
+    tmp = queue_file + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(remaining, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, queue_file)
+
+PYEOF
+  }
+
+  with_queue_lock _do_rewrite
+  log "Queue flush complete: $sent/$total sent."
+}
+
+# ===========================================================================
 # config.json에서 Slack 설정 읽기
+# ===========================================================================
 read_slack_config() {
   python3 -c "
 import json, sys
@@ -44,7 +305,14 @@ WEBHOOK_URL=$(read_slack_config) || {
   exit 0
 }
 
+# ===========================================================================
+# Flush any previously queued messages before doing anything else.
+# ===========================================================================
+flush_queue "$WEBHOOK_URL"
+
+# ===========================================================================
 # 테스트 모드
+# ===========================================================================
 if [ "$DATE" = "test" ]; then
   PAYLOAD=$(python3 -c "
 import json
@@ -62,23 +330,21 @@ payload = {
 print(json.dumps(payload, ensure_ascii=False))
 ")
 
-  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-    -X POST -H "Content-Type: application/json" \
-    -d "$PAYLOAD" \
-    "$WEBHOOK_URL")
-
-  if [ "$HTTP_STATUS" = "200" ]; then
+  if send_with_retry "$PAYLOAD" "$WEBHOOK_URL"; then
     log "Slack test message sent successfully."
     echo "OK: 테스트 메시지가 전송되었습니다."
   else
-    log "ERROR: Slack test message failed (HTTP ${HTTP_STATUS})."
-    echo "ERROR: 전송 실패 (HTTP ${HTTP_STATUS})"
+    enqueue_payload "test" "$PAYLOAD"
+    log "ERROR: Slack test message failed after $MAX_RETRIES retries (HTTP ${LAST_HTTP_STATUS}). Queued for later."
+    echo "ERROR: 전송 실패 (HTTP ${LAST_HTTP_STATUS}). 큐에 저장되었습니다."
     exit 1
   fi
   exit 0
 fi
 
+# ===========================================================================
 # 리포트 모드
+# ===========================================================================
 if [ "$DATE" = "report" ]; then
   REPORT_NAME="${2:-}"
   if [ -z "$REPORT_NAME" ]; then
@@ -121,21 +387,19 @@ print(json.dumps(payload, ensure_ascii=False))
 PYEOF
   )
 
-  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-    -X POST -H "Content-Type: application/json" \
-    -d "$PAYLOAD" \
-    "$WEBHOOK_URL")
-
-  if [ "$HTTP_STATUS" = "200" ]; then
+  if send_with_retry "$PAYLOAD" "$WEBHOOK_URL"; then
     log "Slack report notification sent: $REPORT_NAME"
   else
-    log "ERROR: Slack report notification failed (HTTP ${HTTP_STATUS})"
+    enqueue_payload "report" "$PAYLOAD"
+    log "ERROR: Slack report notification failed after $MAX_RETRIES retries (HTTP ${LAST_HTTP_STATUS}). Queued for later."
     exit 1
   fi
   exit 0
 fi
 
+# ===========================================================================
 # 브리핑 파일 확인
+# ===========================================================================
 if [ ! -f "$BRIEFING_FILE" ]; then
   log "ERROR: Briefing file not found: $BRIEFING_FILE"
   exit 1
@@ -218,14 +482,10 @@ PYEOF
 )
 
 # Slack 전송
-HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-  -X POST -H "Content-Type: application/json" \
-  -d "$PAYLOAD" \
-  "$WEBHOOK_URL")
-
-if [ "$HTTP_STATUS" = "200" ]; then
+if send_with_retry "$PAYLOAD" "$WEBHOOK_URL"; then
   log "Slack notification sent successfully (${DATE})."
 else
-  log "ERROR: Slack notification failed (HTTP ${HTTP_STATUS})."
+  enqueue_payload "briefing" "$PAYLOAD"
+  log "ERROR: Slack notification failed after $MAX_RETRIES retries (HTTP ${LAST_HTTP_STATUS}). Queued for later."
   exit 1
 fi

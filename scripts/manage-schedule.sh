@@ -11,9 +11,34 @@ set -euo pipefail
 
 ACTION="${1:-}"
 PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-LOG_FILE="$PLUGIN_DIR/briefings/schedule.log"
+LOG_FILE="${PLUGIN_DIR}/briefings/schedule.log"
+PLATFORM="$(uname -s)"
 
-# 요일 이름 → launchd Weekday 숫자 변환 (0=일, 1=월, ..., 6=토)
+# ---------------------------------------------------------------------------
+# 유틸리티 함수
+# ---------------------------------------------------------------------------
+
+# HH:MM 형식 검증 (00-23:00-59)
+validate_time() {
+  local time="$1"
+  if ! echo "$time" | grep -qE '^[0-9]{2}:[0-9]{2}$'; then
+    echo "ERROR: 시간 형식이 올바르지 않습니다: ${time} (HH:MM 형식 필요)" >&2
+    exit 1
+  fi
+  local hour="${time%%:*}"
+  local minute="${time##*:}"
+  # 10# 접두어로 08, 09 등의 8진수 해석 문제 방지
+  if [ "$((10#$hour))" -lt 0 ] || [ "$((10#$hour))" -gt 23 ]; then
+    echo "ERROR: 시(hour)는 00-23 범위여야 합니다: ${hour}" >&2
+    exit 1
+  fi
+  if [ "$((10#$minute))" -lt 0 ] || [ "$((10#$minute))" -gt 59 ]; then
+    echo "ERROR: 분(minute)은 00-59 범위여야 합니다: ${minute}" >&2
+    exit 1
+  fi
+}
+
+# 요일 이름 -> launchd Weekday 숫자 변환 (0=일, 1=월, ..., 6=토)
 day_to_weekday() {
   case "$1" in
     sunday|sun|일)    echo 0 ;;
@@ -27,7 +52,7 @@ day_to_weekday() {
   esac
 }
 
-# Weekday 숫자 → 한국어 요일
+# Weekday 숫자 -> 한국어 요일
 weekday_to_korean() {
   case "$1" in
     0) echo "일" ;; 1) echo "월" ;; 2) echo "화" ;; 3) echo "수" ;;
@@ -40,7 +65,7 @@ check_slack_status() {
   python3 -c "
 import json
 try:
-    with open('$PLUGIN_DIR/config.json') as f:
+    with open('${PLUGIN_DIR}/config.json') as f:
         c = json.load(f)
     s = c.get('notifications', {}).get('slack', {})
     if s.get('webhook_url') and s.get('enabled', True):
@@ -52,87 +77,264 @@ except Exception:
 " 2>/dev/null || echo "OFF"
 }
 
-case "$ACTION" in
-  install)
-    TIME="${2:-09:00}"
-    HOUR="${TIME%%:*}"
-    MINUTE="${TIME##*:}"
-    PLIST_NAME="com.smart-briefing.daily"
-    PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_NAME.plist"
-    RUN_SCRIPT="$PLUGIN_DIR/scripts/run-briefing.sh"
+# ---------------------------------------------------------------------------
+# 실행 스크립트 생성 (중복 제거)
+# 인자: script_path, script_content
+# ---------------------------------------------------------------------------
+generate_run_script() {
+  local script_path="$1"
+  local script_content="$2"
 
-    mkdir -p "$HOME/Library/LaunchAgents"
-    mkdir -p "$PLUGIN_DIR/briefings"
+  cat > "$script_path" << RUNSCRIPT_EOF
+${script_content}
+RUNSCRIPT_EOF
+  chmod +x "$script_path"
+}
 
-    # run-briefing.sh 생성
-    cat > "$RUN_SCRIPT" << RUNSCRIPT
-#!/bin/bash
-# Smart Daily Briefing - 자동 브리핑 실행 스크립트
-# 이 파일은 /smart-briefing:schedule install 에 의해 자동 생성됩니다.
+# ---------------------------------------------------------------------------
+# macOS launchd plist 생성
+# 인자: label, program_args, hour, minute [weekday]
+# ---------------------------------------------------------------------------
+generate_plist() {
+  local label="$1"
+  local program_args="$2"
+  local hour="$3"
+  local minute="$4"
+  local weekday="${5:-}"
 
-PLUGIN_DIR="$PLUGIN_DIR"
-LOG_FILE="\$PLUGIN_DIR/briefings/schedule.log"
-TODAY=\$(date '+%Y-%m-%d')
+  local plist_path="${HOME}/Library/LaunchAgents/${label}.plist"
+  mkdir -p "${HOME}/Library/LaunchAgents"
 
-echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 브리핑 시작" >> "\$LOG_FILE"
+  local weekday_entry=""
+  if [ -n "$weekday" ]; then
+    weekday_entry="    <key>Weekday</key>
+    <integer>${weekday}</integer>"
+  fi
 
-claude -p \\
-  --plugin-dir "\$PLUGIN_DIR" \\
-  "/smart-briefing:briefing" \\
-  >> "\$LOG_FILE" 2>&1
-
-echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 브리핑 완료" >> "\$LOG_FILE"
-
-# Slack 알림 전송 (config.json에 webhook_url이 설정된 경우만)
-if [ -f "\$PLUGIN_DIR/scripts/send-slack.sh" ]; then
-  bash "\$PLUGIN_DIR/scripts/send-slack.sh" "\$TODAY" >> "\$LOG_FILE" 2>&1
-fi
-RUNSCRIPT
-    chmod +x "$RUN_SCRIPT"
-
-    # plist 생성
-    cat > "$PLIST_PATH" << PLIST
+  cat > "$plist_path" << PLIST_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>$PLIST_NAME</string>
+  <string>${label}</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>$RUN_SCRIPT</string>
+    <string>${program_args}</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict>
     <key>Hour</key>
-    <integer>$HOUR</integer>
+    <integer>${hour}</integer>
     <key>Minute</key>
-    <integer>$MINUTE</integer>
-  </dict>
+    <integer>${minute}</integer>
+${weekday_entry}  </dict>
   <key>StandardOutPath</key>
-  <string>$LOG_FILE</string>
+  <string>${LOG_FILE}</string>
   <key>StandardErrorPath</key>
-  <string>$LOG_FILE</string>
+  <string>${LOG_FILE}</string>
   <key>RunAtLoad</key>
   <false/>
 </dict>
 </plist>
-PLIST
+PLIST_EOF
 
-    launchctl unload "$PLIST_PATH" 2>/dev/null || true
-    launchctl load "$PLIST_PATH"
+  launchctl unload "$plist_path" 2>/dev/null || true
+  launchctl load "$plist_path"
+}
+
+# ---------------------------------------------------------------------------
+# Linux systemd timer/service 생성
+# 인자: unit_name, program_args, hour, minute [weekday]
+# ---------------------------------------------------------------------------
+generate_systemd_timer() {
+  local unit_name="$1"
+  local program_args="$2"
+  local hour="$3"
+  local minute="$4"
+  local weekday="${5:-}"
+
+  local user_systemd_dir="${HOME}/.config/systemd/user"
+  mkdir -p "$user_systemd_dir"
+
+  local service_path="${user_systemd_dir}/${unit_name}.service"
+  local timer_path="${user_systemd_dir}/${unit_name}.timer"
+
+  # OnCalendar 스케줄 생성
+  local on_calendar=""
+  if [ -n "$weekday" ]; then
+    # weekday(0=Sun..6=Sat) -> systemd 요일 약어
+    local sd_day
+    case "$weekday" in
+      0) sd_day="Sun" ;; 1) sd_day="Mon" ;; 2) sd_day="Tue" ;; 3) sd_day="Wed" ;;
+      4) sd_day="Thu" ;; 5) sd_day="Fri" ;; 6) sd_day="Sat" ;; *) sd_day="*" ;;
+    esac
+    on_calendar="${sd_day} *-*-* ${hour}:${minute}:00"
+  else
+    on_calendar="*-*-* ${hour}:${minute}:00"
+  fi
+
+  # .service 파일 생성
+  cat > "$service_path" << SERVICE_EOF
+[Unit]
+Description=Smart Daily Briefing - ${unit_name}
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash ${program_args}
+SERVICE_EOF
+
+  # .timer 파일 생성
+  cat > "$timer_path" << TIMER_EOF
+[Unit]
+Description=Timer for Smart Daily Briefing - ${unit_name}
+
+[Timer]
+OnCalendar=${on_calendar}
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+TIMER_EOF
+
+  systemctl --user daemon-reload
+  systemctl --user enable --now "${unit_name}.timer"
+}
+
+# ---------------------------------------------------------------------------
+# 플랫폼별 스케줄 등록
+# 인자: label, program_args, hour, minute [weekday]
+# ---------------------------------------------------------------------------
+install_schedule() {
+  local label="$1"
+  local program_args="$2"
+  local hour="$3"
+  local minute="$4"
+  local weekday="${5:-}"
+
+  case "$PLATFORM" in
+    Darwin)
+      generate_plist "$label" "$program_args" "$hour" "$minute" "$weekday"
+      ;;
+    Linux)
+      generate_systemd_timer "$label" "$program_args" "$hour" "$minute" "$weekday"
+      ;;
+    *)
+      echo "ERROR: 지원되지 않는 플랫폼입니다: ${PLATFORM}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# 플랫폼별 스케줄 제거
+# 인자: label
+# ---------------------------------------------------------------------------
+uninstall_schedule() {
+  local label="$1"
+
+  case "$PLATFORM" in
+    Darwin)
+      local plist_path="${HOME}/Library/LaunchAgents/${label}.plist"
+      if [ -f "$plist_path" ]; then
+        launchctl unload "$plist_path" 2>/dev/null || true
+        rm -f "$plist_path"
+        return 0
+      fi
+      return 1
+      ;;
+    Linux)
+      local user_systemd_dir="${HOME}/.config/systemd/user"
+      local service_path="${user_systemd_dir}/${label}.service"
+      local timer_path="${user_systemd_dir}/${label}.timer"
+      if [ -f "$timer_path" ]; then
+        systemctl --user disable --now "${label}.timer" 2>/dev/null || true
+        rm -f "$service_path" "$timer_path"
+        systemctl --user daemon-reload
+        return 0
+      fi
+      return 1
+      ;;
+    *)
+      echo "ERROR: 지원되지 않는 플랫폼입니다: ${PLATFORM}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# 플랫폼별 스케줄 존재 확인
+# 인자: label
+# 반환: 존재하면 0, 아니면 1
+# ---------------------------------------------------------------------------
+schedule_exists() {
+  local label="$1"
+
+  case "$PLATFORM" in
+    Darwin)
+      [ -f "${HOME}/Library/LaunchAgents/${label}.plist" ]
+      ;;
+    Linux)
+      [ -f "${HOME}/.config/systemd/user/${label}.timer" ]
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# 메인 case
+# ---------------------------------------------------------------------------
+case "$ACTION" in
+  install)
+    TIME="${2:-09:00}"
+    validate_time "$TIME"
+    HOUR="${TIME%%:*}"
+    MINUTE="${TIME##*:}"
+    PLIST_NAME="com.smart-briefing.daily"
+    RUN_SCRIPT="${PLUGIN_DIR}/scripts/run-briefing.sh"
+
+    mkdir -p "${PLUGIN_DIR}/briefings"
+
+    # run-briefing.sh 생성
+    BRIEFING_CONTENT="$(cat << CONTENT_EOF
+#!/bin/bash
+# Smart Daily Briefing - 자동 브리핑 실행 스크립트
+# 이 파일은 /smart-briefing:schedule install 에 의해 자동 생성됩니다.
+
+PLUGIN_DIR="${PLUGIN_DIR}"
+LOG_FILE="\${PLUGIN_DIR}/briefings/schedule.log"
+TODAY=\$(date '+%Y-%m-%d')
+
+echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 브리핑 시작" >> "\${LOG_FILE}"
+
+claude -p \\
+  --plugin-dir "\${PLUGIN_DIR}" \\
+  "/smart-briefing:briefing" \\
+  >> "\${LOG_FILE}" 2>&1
+
+echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 브리핑 완료" >> "\${LOG_FILE}"
+
+# Slack 알림 전송 (config.json에 webhook_url이 설정된 경우만)
+if [ -f "\${PLUGIN_DIR}/scripts/send-slack.sh" ]; then
+  bash "\${PLUGIN_DIR}/scripts/send-slack.sh" "\${TODAY}" >> "\${LOG_FILE}" 2>&1
+fi
+CONTENT_EOF
+)"
+    generate_run_script "$RUN_SCRIPT" "$BRIEFING_CONTENT"
+
+    # 스케줄 등록
+    install_schedule "$PLIST_NAME" "$RUN_SCRIPT" "$HOUR" "$MINUTE"
     echo "OK: 매일 ${TIME}에 브리핑이 실행됩니다."
     ;;
 
   uninstall)
     PLIST_NAME="com.smart-briefing.daily"
-    PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_NAME.plist"
-    RUN_SCRIPT="$PLUGIN_DIR/scripts/run-briefing.sh"
+    RUN_SCRIPT="${PLUGIN_DIR}/scripts/run-briefing.sh"
 
-    if [ -f "$PLIST_PATH" ]; then
-      launchctl unload "$PLIST_PATH" 2>/dev/null || true
-      rm -f "$PLIST_PATH"
+    if uninstall_schedule "$PLIST_NAME"; then
       rm -f "$RUN_SCRIPT"
       echo "OK: 스케줄이 제거되었습니다."
     else
@@ -145,6 +347,8 @@ PLIST
     FREQUENCY="${3:-daily}"
     REPORT_TIME="${4:-09:00}"
     DAY_OF_WEEK="${5:-}"
+
+    validate_time "$REPORT_TIME"
     R_HOUR="${REPORT_TIME%%:*}"
     R_MINUTE="${REPORT_TIME##*:}"
 
@@ -154,80 +358,48 @@ PLIST
       exit 1
     fi
 
-    REPORT_PLIST_NAME="com.smart-briefing.report.${REPORT_NAME}"
-    REPORT_PLIST_PATH="$HOME/Library/LaunchAgents/$REPORT_PLIST_NAME.plist"
-    REPORT_RUN_SCRIPT="$PLUGIN_DIR/scripts/run-report-${REPORT_NAME}.sh"
+    REPORT_LABEL="com.smart-briefing.report.${REPORT_NAME}"
+    REPORT_RUN_SCRIPT="${PLUGIN_DIR}/scripts/run-report-${REPORT_NAME}.sh"
 
-    mkdir -p "$HOME/Library/LaunchAgents"
-    mkdir -p "$PLUGIN_DIR/briefings"
+    mkdir -p "${PLUGIN_DIR}/briefings"
 
     # run-report-{name}.sh 생성
-    cat > "$REPORT_RUN_SCRIPT" << RUNSCRIPT
+    REPORT_CONTENT="$(cat << CONTENT_EOF
 #!/bin/bash
 # Smart Daily Briefing - 리포트 자동 실행 스크립트
-# 리포트: $REPORT_NAME
+# 리포트: ${REPORT_NAME}
 # 이 파일은 /smart-briefing:schedule 에 의해 자동 생성됩니다.
 
-PLUGIN_DIR="$PLUGIN_DIR"
-REPORT_NAME="$REPORT_NAME"
-LOG_FILE="\$PLUGIN_DIR/briefings/schedule.log"
-RESULT_FILE="\$PLUGIN_DIR/reports/\${REPORT_NAME}-latest.log"
+PLUGIN_DIR="${PLUGIN_DIR}"
+REPORT_NAME="${REPORT_NAME}"
+LOG_FILE="\${PLUGIN_DIR}/briefings/schedule.log"
+RESULT_FILE="\${PLUGIN_DIR}/reports/\${REPORT_NAME}-latest.log"
 
-echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 리포트 시작: \$REPORT_NAME" >> "\$LOG_FILE"
+echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 리포트 시작: \${REPORT_NAME}" >> "\${LOG_FILE}"
 
 claude -p \\
-  --plugin-dir "\$PLUGIN_DIR" \\
-  "/smart-briefing:schedule run \$REPORT_NAME" \\
-  > "\$RESULT_FILE" 2>&1
+  --plugin-dir "\${PLUGIN_DIR}" \\
+  "/smart-briefing:schedule run \${REPORT_NAME}" \\
+  > "\${RESULT_FILE}" 2>&1
 
-echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 리포트 완료: \$REPORT_NAME" >> "\$LOG_FILE"
+echo "[\$(date '+%Y-%m-%d %H:%M:%S')] 리포트 완료: \${REPORT_NAME}" >> "\${LOG_FILE}"
 
 # Slack 알림 전송
-if [ -f "\$PLUGIN_DIR/scripts/send-slack.sh" ]; then
-  bash "\$PLUGIN_DIR/scripts/send-slack.sh" report "\$REPORT_NAME" >> "\$LOG_FILE" 2>&1
+if [ -f "\${PLUGIN_DIR}/scripts/send-slack.sh" ]; then
+  bash "\${PLUGIN_DIR}/scripts/send-slack.sh" report "\${REPORT_NAME}" >> "\${LOG_FILE}" 2>&1
 fi
-RUNSCRIPT
-    chmod +x "$REPORT_RUN_SCRIPT"
+CONTENT_EOF
+)"
+    generate_run_script "$REPORT_RUN_SCRIPT" "$REPORT_CONTENT"
 
-    # StartCalendarInterval 생성
-    INTERVAL="    <key>Hour</key>\n    <integer>$R_HOUR</integer>\n    <key>Minute</key>\n    <integer>$R_MINUTE</integer>"
-
+    # 요일 처리
+    WEEKDAY=""
     if [ "$FREQUENCY" = "weekly" ] && [ -n "$DAY_OF_WEEK" ]; then
       WEEKDAY=$(day_to_weekday "$DAY_OF_WEEK")
-      if [ -n "$WEEKDAY" ]; then
-        INTERVAL="$INTERVAL\n    <key>Weekday</key>\n    <integer>$WEEKDAY</integer>"
-      fi
     fi
 
-    # plist 생성
-    cat > "$REPORT_PLIST_PATH" << PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>$REPORT_PLIST_NAME</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/bin/bash</string>
-    <string>$REPORT_RUN_SCRIPT</string>
-  </array>
-  <key>StartCalendarInterval</key>
-  <dict>
-$(printf "$INTERVAL")
-  </dict>
-  <key>StandardOutPath</key>
-  <string>$LOG_FILE</string>
-  <key>StandardErrorPath</key>
-  <string>$LOG_FILE</string>
-  <key>RunAtLoad</key>
-  <false/>
-</dict>
-</plist>
-PLIST
-
-    launchctl unload "$REPORT_PLIST_PATH" 2>/dev/null || true
-    launchctl load "$REPORT_PLIST_PATH"
+    # 스케줄 등록
+    install_schedule "$REPORT_LABEL" "$REPORT_RUN_SCRIPT" "$R_HOUR" "$R_MINUTE" "$WEEKDAY"
 
     case "$FREQUENCY" in
       daily)  echo "OK: 리포트 '$REPORT_NAME'이(가) 매일 ${REPORT_TIME}에 실행됩니다." ;;
@@ -243,14 +415,12 @@ PLIST
       exit 1
     fi
 
-    REPORT_PLIST_PATH="$HOME/Library/LaunchAgents/com.smart-briefing.report.${REPORT_NAME}.plist"
-    REPORT_RUN_SCRIPT="$PLUGIN_DIR/scripts/run-report-${REPORT_NAME}.sh"
+    REPORT_LABEL="com.smart-briefing.report.${REPORT_NAME}"
+    REPORT_RUN_SCRIPT="${PLUGIN_DIR}/scripts/run-report-${REPORT_NAME}.sh"
 
-    if [ -f "$REPORT_PLIST_PATH" ]; then
-      launchctl unload "$REPORT_PLIST_PATH" 2>/dev/null || true
-      rm -f "$REPORT_PLIST_PATH"
+    if uninstall_schedule "$REPORT_LABEL"; then
       rm -f "$REPORT_RUN_SCRIPT"
-      rm -f "$PLUGIN_DIR/reports/${REPORT_NAME}-latest.log"
+      rm -f "${PLUGIN_DIR}/reports/${REPORT_NAME}-latest.log"
       echo "OK: 리포트 '$REPORT_NAME' 스케줄이 제거되었습니다."
     else
       echo "NONE: '$REPORT_NAME' 스케줄이 설정되어 있지 않습니다."
@@ -260,12 +430,20 @@ PLIST
   status)
     # 일일 브리핑 상태
     PLIST_NAME="com.smart-briefing.daily"
-    PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_NAME.plist"
 
-    if [ -f "$PLIST_PATH" ]; then
-      SCHED_HOUR=$(plutil -extract StartCalendarInterval.Hour raw "$PLIST_PATH" 2>/dev/null)
-      SCHED_MIN=$(plutil -extract StartCalendarInterval.Minute raw "$PLIST_PATH" 2>/dev/null)
-      printf "ACTIVE: 매일 %02d:%02d\n" "$SCHED_HOUR" "$SCHED_MIN"
+    if schedule_exists "$PLIST_NAME"; then
+      case "$PLATFORM" in
+        Darwin)
+          PLIST_PATH="${HOME}/Library/LaunchAgents/${PLIST_NAME}.plist"
+          SCHED_HOUR=$(plutil -extract StartCalendarInterval.Hour raw "$PLIST_PATH" 2>/dev/null)
+          SCHED_MIN=$(plutil -extract StartCalendarInterval.Minute raw "$PLIST_PATH" 2>/dev/null)
+          printf "ACTIVE: 매일 %02d:%02d\n" "$SCHED_HOUR" "$SCHED_MIN"
+          ;;
+        Linux)
+          TIMER_INFO=$(systemctl --user show "${PLIST_NAME}.timer" --property=TimersCalendar 2>/dev/null || echo "")
+          echo "ACTIVE: ${TIMER_INFO:-스케줄 활성화됨}"
+          ;;
+      esac
     else
       echo "NONE: 일일 브리핑 스케줄이 없습니다."
     fi
@@ -280,24 +458,39 @@ PLIST
 
     # 리포트 스케줄 상태
     REPORT_COUNT=0
-    for rplist in "$HOME/Library/LaunchAgents/com.smart-briefing.report."*.plist; do
-      [ -f "$rplist" ] || continue
-      REPORT_COUNT=$((REPORT_COUNT + 1))
-      if [ "$REPORT_COUNT" -eq 1 ]; then
-        echo "REPORTS:"
-      fi
-      # 리포트 이름 추출
-      RNAME=$(basename "$rplist" .plist | sed 's/com.smart-briefing.report.//')
-      R_HOUR=$(plutil -extract StartCalendarInterval.Hour raw "$rplist" 2>/dev/null || echo "?")
-      R_MIN=$(plutil -extract StartCalendarInterval.Minute raw "$rplist" 2>/dev/null || echo "?")
-      R_WEEKDAY=$(plutil -extract StartCalendarInterval.Weekday raw "$rplist" 2>/dev/null) || R_WEEKDAY=""
-      if [ -n "$R_WEEKDAY" ]; then
-        R_DAY_KR=$(weekday_to_korean "$R_WEEKDAY")
-        printf "  %s | weekly | %s %02d:%02d\n" "$RNAME" "$R_DAY_KR" "$R_HOUR" "$R_MIN"
-      else
-        printf "  %s | daily | %02d:%02d\n" "$RNAME" "$R_HOUR" "$R_MIN"
-      fi
-    done
+    case "$PLATFORM" in
+      Darwin)
+        for rplist in "${HOME}/Library/LaunchAgents/com.smart-briefing.report."*.plist; do
+          [ -f "$rplist" ] || continue
+          REPORT_COUNT=$((REPORT_COUNT + 1))
+          if [ "$REPORT_COUNT" -eq 1 ]; then
+            echo "REPORTS:"
+          fi
+          RNAME=$(basename "$rplist" .plist | sed 's/com.smart-briefing.report.//')
+          R_HOUR=$(plutil -extract StartCalendarInterval.Hour raw "$rplist" 2>/dev/null || echo "?")
+          R_MIN=$(plutil -extract StartCalendarInterval.Minute raw "$rplist" 2>/dev/null || echo "?")
+          R_WEEKDAY=$(plutil -extract StartCalendarInterval.Weekday raw "$rplist" 2>/dev/null) || R_WEEKDAY=""
+          if [ -n "$R_WEEKDAY" ]; then
+            R_DAY_KR=$(weekday_to_korean "$R_WEEKDAY")
+            printf "  %s | weekly | %s %02d:%02d\n" "$RNAME" "$R_DAY_KR" "$R_HOUR" "$R_MIN"
+          else
+            printf "  %s | daily | %02d:%02d\n" "$RNAME" "$R_HOUR" "$R_MIN"
+          fi
+        done
+        ;;
+      Linux)
+        for rtimer in "${HOME}/.config/systemd/user/com.smart-briefing.report."*.timer; do
+          [ -f "$rtimer" ] || continue
+          REPORT_COUNT=$((REPORT_COUNT + 1))
+          if [ "$REPORT_COUNT" -eq 1 ]; then
+            echo "REPORTS:"
+          fi
+          RNAME=$(basename "$rtimer" .timer | sed 's/com.smart-briefing.report.//')
+          TIMER_CAL=$(systemctl --user show "com.smart-briefing.report.${RNAME}.timer" --property=TimersCalendar 2>/dev/null || echo "?")
+          printf "  %s | %s\n" "$RNAME" "$TIMER_CAL"
+        done
+        ;;
+    esac
 
     if [ "$REPORT_COUNT" -eq 0 ]; then
       echo "REPORTS: 없음"

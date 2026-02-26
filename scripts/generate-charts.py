@@ -22,61 +22,14 @@ import platform
 import subprocess
 import sys
 
-# ---------- Python 자동 전환 ----------
-# 항상 homebrew Python을 우선 사용 (더 나은 폰트/라이브러리 지원)
-_HOMEBREW_PYTHONS = [
-    '/opt/homebrew/bin/python3.13',
-    '/opt/homebrew/bin/python3.12',
-    '/opt/homebrew/bin/python3.11',
-]
-_OTHER_PYTHONS = [
-    '/usr/local/bin/python3',
-    '/usr/bin/python3',
-]
+# ---------- 공통 유틸리티 ----------
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from utils import ensure_best_python, auto_install, find_korean_font, safe_write, safe_write_json
 
-def _reexec_with_better_python():
-    """더 좋은 Python(homebrew 우선)으로 재실행"""
-    candidates = _HOMEBREW_PYTHONS + _OTHER_PYTHONS
-    for py in candidates:
-        if py == sys.executable or not os.path.exists(py):
-            continue
-        try:
-            result = subprocess.run(
-                [py, '-c', 'import matplotlib'],
-                capture_output=True, timeout=10
-            )
-            if result.returncode == 0:
-                print(f"  Re-exec with: {py}", file=sys.stderr)
-                os.execv(py, [py] + sys.argv)
-        except (OSError, subprocess.TimeoutExpired):
-            continue
-
-# homebrew Python이 아니면 homebrew로 재실행 시도
-if '/opt/homebrew/' not in sys.executable:
-    _reexec_with_better_python()
-# homebrew인데 matplotlib이 없으면 다른 Python으로 재실행
-else:
-    try:
-        import matplotlib as _mpl_test
-        del _mpl_test
-    except ImportError:
-        _reexec_with_better_python()
+# ---------- Python 자동 전환 (matplotlib 기준) ----------
+ensure_best_python('import matplotlib')
 
 # ---------- matplotlib 감지 & 자동 설치 ----------
-def _auto_install(*packages):
-    """미설치 패키지를 자동으로 pip install 시도"""
-    for attempt in range(2):
-        try:
-            cmd = [sys.executable, '-m', 'pip', 'install', '--quiet']
-            if attempt == 1:
-                cmd.append('--break-system-packages')
-            cmd.extend(packages)
-            subprocess.check_call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            continue
-    return False
-
 try:
     import matplotlib
     matplotlib.use('Agg')
@@ -88,7 +41,7 @@ try:
     HAS_MATPLOTLIB = True
 except ImportError:
     print("matplotlib 미설치 → 자동 설치 시도...", file=sys.stderr)
-    if _auto_install('matplotlib'):
+    if auto_install('matplotlib'):
         try:
             import matplotlib
             matplotlib.use('Agg')
@@ -390,58 +343,8 @@ class SvgChartGenerator:
 
 
 # ============================================================
-#  폰트 검색 경로 (플랫폼별)
+#  폰트 검색: utils.py의 find_korean_font() 사용
 # ============================================================
-# 1순위: 플러그인 번들 폰트 (fonts/NanumGothic-Regular.ttf) → 컨테이너 환경에서도 동작
-# 2순위: macOS 시스템 폰트 (AppleGothic.ttf 우선, AppleSDGothicNeo.ttc는 CFF-in-TTC 문제)
-# 3순위: Linux 시스템 폰트
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_BUNDLED_FONT = os.path.join(_SCRIPT_DIR, '..', 'fonts', 'NanumGothic-Regular.ttf')
-
-FONT_PATHS = {
-    'Darwin': [
-        '/System/Library/Fonts/Supplemental/AppleGothic.ttf',
-        '/Library/Fonts/NanumGothic.otf',
-        '/Library/Fonts/NanumGothic.ttf',
-        '/System/Library/Fonts/AppleSDGothicNeo.ttc',
-    ],
-    'Linux': [
-        '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-        '/usr/share/fonts/nanum/NanumGothic.ttf',
-        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
-        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-    ],
-}
-
-
-def _find_korean_font():
-    """한국어 폰트 파일을 찾아 반환 (번들 폰트 → 시스템 폰트 → fc-list)"""
-    # 1순위: 플러그인 번들 폰트
-    bundled = os.path.abspath(_BUNDLED_FONT)
-    if os.path.exists(bundled):
-        return bundled
-
-    # 2순위: 플랫폼별 시스템 폰트
-    system = platform.system()
-    for path in FONT_PATHS.get(system, []):
-        if os.path.exists(path):
-            return path
-
-    # 3순위: fc-list fallback
-    try:
-        result = subprocess.run(
-            ['fc-list', ':lang=ko', 'file'],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            for line in result.stdout.strip().split('\n'):
-                path = line.strip().rstrip(':').strip()
-                if path and os.path.exists(path):
-                    return path
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-
-    return None
 
 
 # ============================================================
@@ -465,7 +368,7 @@ class MatplotlibChartGenerator:
         """폰트 파일을 직접 등록하여 환경에 무관하게 한국어 렌더링"""
         self._font_prop = None
 
-        font_path = _find_korean_font()
+        font_path = find_korean_font()
         if font_path:
             try:
                 fm.fontManager.addfont(font_path)
@@ -779,8 +682,7 @@ class ChartDispatcher:
                 title, labels, sessions,
                 value_labels=[format_number(v) for v in sessions],
             )
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(svg)
+            safe_write(path, svg)
 
         self.manifest['charts']['daily_trend'] = f'daily_trend.{self.ext}'
 
@@ -805,8 +707,7 @@ class ChartDispatcher:
             self.mpl_gen.generate_pie(title, labels, values, output_path=path)
         else:
             svg = self.svg_gen.generate_pie(title, labels, values)
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(svg)
+            safe_write(path, svg)
 
         self.manifest['charts']['device'] = f'device.{self.ext}'
 
@@ -828,8 +729,7 @@ class ChartDispatcher:
             self.mpl_gen.generate_horizontal_bar(title, labels, values, show_percent=show_percent, output_path=path)
         else:
             svg = self.svg_gen.generate_horizontal_bar(title, labels, values, show_percent=show_percent)
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(svg)
+            safe_write(path, svg)
 
         self.manifest['charts'][section_id] = f'{section_id}.{self.ext}'
 
@@ -904,8 +804,7 @@ class ChartDispatcher:
             self.mpl_gen.generate_change_bar(title, labels, changes, threshold, output_path=path)
         else:
             svg = self.svg_gen.generate_change_bar(title, labels, changes, threshold)
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(svg)
+            safe_write(path, svg)
 
         self.manifest['charts'][chart_id] = f'{chart_id}.{self.ext}'
 
@@ -917,8 +816,7 @@ class ChartDispatcher:
 
     def save_manifest(self):
         path = os.path.join(self.output_dir, 'manifest.json')
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(self.manifest, f, ensure_ascii=False, indent=2)
+        safe_write_json(path, self.manifest)
 
 
 # ============================================================

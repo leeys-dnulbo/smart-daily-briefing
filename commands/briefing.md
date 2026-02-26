@@ -1,6 +1,6 @@
 ---
-description: AI 브리핑을 생성합니다. weekly 주간 요약, compare 날짜 비교가 가능합니다.
-argument-hint: "[daily | weekly | weekly YYYY-MM-DD | compare | compare YYYY-MM-DD YYYY-MM-DD]"
+description: AI 브리핑을 생성합니다. weekly 주간 요약, compare 날짜 비교, list 히스토리가 가능합니다.
+argument-hint: "[daily | weekly | compare | list]"
 ---
 
 # 브리핑 생성
@@ -13,6 +13,7 @@ argument-hint: "[daily | weekly | weekly YYYY-MM-DD | compare | compare YYYY-MM-
 - `weekly YYYY-MM-DD`: 해당 날짜가 속한 주의 주간 요약. 날짜는 해당 주의 월요일로 정렬됨.
 - `compare`: **브리핑 비교** (아래 "브리핑 비교" 섹션). 직전 2일(어제 vs 그제) 비교.
 - `compare YYYY-MM-DD YYYY-MM-DD`: 지정된 두 날짜의 브리핑 비교.
+- `list`: **브리핑 히스토리** (아래 "브리핑 히스토리" 섹션). 최근 14일 브리핑 목록.
 
 ---
 
@@ -629,3 +630,43 @@ $PYTHON "$CHART_SCRIPT" \
 ```
 
 비교 결과는 터미널에만 출력하고 파일로 저장하지 않습니다.
+
+---
+
+# 브리핑 히스토리
+
+> `$ARGUMENTS`가 `list`일 때 이 섹션을 실행합니다.
+
+최근 14일간 생성된 브리핑 파일을 조회하여 목록으로 표시합니다.
+
+## L1단계: 파일 탐색
+
+`briefings/` 디렉토리에서 최근 14일간의 파일을 탐색합니다:
+
+- `briefings/YYYY-MM-DD.md` — 일일 브리핑
+- `briefings/YYYY-MM-DD.json` — sidecar 데이터
+- `briefings/YYYY-MM-DD.pdf` — PDF 파일
+- `briefings/weekly-YYYY-MM-DD.md` — 주간 브리핑
+
+## L2단계: 목록 출력
+
+```markdown
+# 브리핑 히스토리 (최근 14일)
+
+| 날짜 | 타입 | 파일 | sidecar | PDF |
+|------|------|------|---------|-----|
+| 2026-02-26 | daily | briefings/2026-02-26.md | O | O |
+| 2026-02-25 | daily | briefings/2026-02-25.md | O | - |
+| 2026-02-24 | weekly | briefings/weekly-2026-02-17.md | O | O |
+| 2026-02-23 | daily | briefings/2026-02-23.md | O | O |
+| ... | ... | ... | ... | ... |
+
+총 {N}개 브리핑 (일일 {D}개, 주간 {W}개)
+sidecar 보유율: {sidecar 있는 일일 수}/{일일 총 수} ({비율}%)
+```
+
+파일이 없는 경우:
+```
+최근 14일간 생성된 브리핑이 없습니다.
+브리핑을 생성하려면: /smart-briefing:briefing
+```

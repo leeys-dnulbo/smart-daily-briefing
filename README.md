@@ -107,8 +107,8 @@ GA 관련 질문을 하면 자동으로 데이터를 조회하고 분석합니�
 | 커맨드 | 설명 |
 |--------|------|
 | `/smart-briefing:setup` | 초기 설정 안내 (MCP 연결 확인, 헬스체크) |
-| `/smart-briefing:briefing` | GA4 브리핑 생성 (daily/weekly) |
-| `/smart-briefing:customize` | 브리핑 개인화 설정 조회/변경 |
+| `/smart-briefing:briefing` | GA4 브리핑 생성 (daily/weekly/compare/list) |
+| `/smart-briefing:customize` | 브리핑 개인화 설정 조회/변경 (알림 포함) |
 | `/smart-briefing:reports` | 저장된 리포트 목록 조회 |
 | `/smart-briefing:schedule` | 리포트 스케줄 조회/설정/실행 |
 | `/smart-briefing:export` | 브리핑 PDF 내보내기 |
@@ -152,6 +152,41 @@ OpenClaw에서는 커맨드 대신 자연어로 동일한 기능을 사용합니
 ```
 
 일별 sidecar 데이터가 4일 이상 있으면 sidecar 기반으로 집계하고, 부족하면 GA4 직접 조회로 자동 전환합니다.
+
+### 브리핑 비교
+
+두 날짜의 브리핑을 sidecar 데이터 기반으로 비교합니다:
+
+```
+/smart-briefing:briefing compare               # 어제 vs 그제
+/smart-briefing:briefing compare 2026-02-20 2026-02-26  # 특정 날짜 비교
+```
+
+### 브리핑 히스토리
+
+최근 14일간 생성된 브리핑 목록을 조회합니다:
+
+```
+/smart-briefing:briefing list
+```
+
+### 이상 탐지 알림
+
+브리핑 생성 시 이상 탐지 항목이 있으면 자동으로 Slack 알림을 전송합니다.
+쿨다운(기본 24시간), 일일 한도(기본 10건), 심각도 필터링이 적용됩니다.
+
+```json
+{
+  "notifications": {
+    "anomaly_alerts": {
+      "enabled": true,
+      "cooldown_hours": 24,
+      "max_alerts_per_day": 10,
+      "min_severity": "warning"
+    }
+  }
+}
+```
 
 ### 환경 진단 (헬스체크)
 
@@ -256,10 +291,12 @@ smart-daily-briefing/
 │   ├── utils.py               # 공통 유틸리티 (폰트, atomic write 등)
 │   ├── sidecar_schema.py      # JSON sidecar 스키마 검증기
 │   ├── healthcheck.py         # 환경 진단 (헬스체크)
+│   ├── send-notification.py   # Python 통합 알림 시스템 (채널 추상화)
+│   ├── anomaly-monitor.py     # 이상 탐지 모니터 (쿨다운/한도)
 │   ├── generate-charts.py     # 차트 이미지 생성 (matplotlib/SVG)
 │   ├── generate-pdf.py        # 브리핑 PDF 내보내기 (weasyprint)
 │   ├── manage-schedule.sh     # 자동 브리핑 스케줄 관리 (launchd/systemd)
-│   └── send-slack.sh          # Slack 웹훅 알림 전송 (재시도 + 큐)
+│   └── send-slack.sh          # Slack 웹훅 알림 (레거시, send-notification.py 권장)
 ├── hooks/
 │   ├── hooks.json             # 훅 설정 (SessionStart, PreToolUse)
 │   ├── inject-plugin-root.sh  # $SMART_BRIEFING_ROOT 환경변수 주입
@@ -269,7 +306,9 @@ smart-daily-briefing/
 │   ├── test_utils.py
 │   ├── test_validate_chart_code.py
 │   ├── test_sidecar_schema.py
-│   └── test_healthcheck.py
+│   ├── test_healthcheck.py
+│   ├── test_send_notification.py
+│   └── test_anomaly_monitor.py
 ├── fonts/
 │   ├── NanumGothic-Regular.ttf # 번들 한국어 폰트 (컨테이너 환경용)
 │   └── OFL.txt                # SIL Open Font License

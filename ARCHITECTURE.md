@@ -214,6 +214,9 @@ graph TB
 | `briefing.max_actions` | `4` | 액션 아이템 최대 수 |
 | `export.auto_pdf` | `true` | 브리핑 시 PDF 자동 생성 |
 | `notifications.slack.enabled` | `false` | Slack 알림 활성화 |
+| `notifications.anomaly_alerts.enabled` | `true` | 이상 탐지 자동 알림 |
+| `notifications.anomaly_alerts.cooldown_hours` | `24` | 동일 메트릭 알림 간격 |
+| `notifications.anomaly_alerts.max_alerts_per_day` | `10` | 일일 최대 알림 수 |
 
 ---
 
@@ -333,3 +336,58 @@ W5: PDF 자동 생성 (설정에 따라)
 
 CLI: `python3 scripts/healthcheck.py [--json] [--check key1,key2]`
 모듈: `run_healthcheck(plugin_dir, checks)` → `[(key, name, status, message)]`
+
+---
+
+## v1.12.0 아키텍처 변경사항
+
+### Python 통합 알림 시스템 (send-notification.py)
+
+`send-slack.sh`를 대체하는 순수 Python 구현. 채널 추상화 패턴으로 멀티채널 확장 가능:
+
+```
+NotificationChannel (base)
+├── SlackChannel — Incoming Webhook
+├── TelegramChannel — v2.0.0 예정
+└── DiscordChannel — v2.0.0 예정
+```
+
+| 함수 | 역할 |
+|------|------|
+| `send_with_retry(ch, payload, config)` | 지수 백오프 재시도 (최대 3회) |
+| `enqueue(type, payload)` | 실패 메시지 JSON 큐 저장 |
+| `flush_queue(ch, config)` | 큐 재전송 |
+| `get_active_channels(config)` | 활성 채널 목록 조회 |
+
+CLI: `python3 scripts/send-notification.py <briefing|test|anomaly|flush|status> [args]`
+
+### 이상 탐지 모니터 (anomaly-monitor.py)
+
+브리핑 sidecar에서 이상 탐지를 추출하고 쿨다운/한도를 적용하여 알림 전송:
+
+```
+sidecar.json → extract anomalies → filter (cooldown/limit/severity) → send-notification.py anomaly
+                                                                    → .alert-history.json 기록
+```
+
+| 기능 | 설명 |
+|------|------|
+| 쿨다운 | 동일 메트릭 재알림 간격 (기본 24시간) |
+| 일일 한도 | 하루 최대 알림 수 (기본 10건) |
+| 심각도 필터 | min_severity 이상만 알림 |
+| 히스토리 | `.alert-history.json`에 7일간 보관 |
+
+### 브리핑 비교 (briefing compare)
+
+두 날짜의 sidecar JSON을 비교하여 지표 변화를 분석:
+
+```
+C1: 비교 대상 결정 (어제 vs 그제 또는 지정 날짜)
+C2: sidecar 로드 (comparable_keys 합집합)
+C3: 변화율 계산 ((이후-이전)/이전 × 100)
+C4: 비교 결과 출력 (터미널만, 파일 저장 없음)
+```
+
+### 브리핑 히스토리 (briefing list)
+
+최근 14일 `briefings/` 디렉토리의 .md, .json, .pdf 파일을 탐색하여 목록 출력.

@@ -655,3 +655,47 @@ class TestAnomalyJsonType:
     def test_number_json_rejected(self, tmp_plugin_dir, capsys):
         result = action_anomaly({}, '42')
         assert result == 2
+
+
+# ---------- build_anomaly_payload non-numeric change_pct ----------
+
+
+class TestAnomalyPayloadEdgeCases:
+    def test_none_change_pct(self):
+        anomalies = [{"metric": "sessions", "change_pct": None, "severity": "warning"}]
+        payload = SlackChannel().build_anomaly_payload(anomalies)
+        assert payload is not None
+        assert "sessions" in payload["blocks"][0]["text"]["text"]
+        assert "0.0%" in payload["blocks"][0]["text"]["text"]
+
+    def test_string_change_pct(self):
+        anomalies = [{"metric": "sessions", "change_pct": "bad", "severity": "warning"}]
+        payload = SlackChannel().build_anomaly_payload(anomalies)
+        assert payload is not None
+        assert "0.0%" in payload["blocks"][0]["text"]["text"]
+
+
+# ---------- queue file corruption ----------
+
+
+class TestQueueCorruption:
+    def test_enqueue_with_dict_queue_file(self, tmp_plugin_dir):
+        import send_notification as mod
+        # 큐 파일에 dict를 작성
+        with open(mod.QUEUE_PATH, "w", encoding="utf-8") as f:
+            json.dump({"corrupt": True}, f)
+        # enqueue가 크래시 없이 동작해야 함
+        enqueue("test", {"text": "hello"})
+        with open(mod.QUEUE_PATH, encoding="utf-8") as f:
+            queue = json.load(f)
+        assert isinstance(queue, list)
+        assert len(queue) == 1
+
+    def test_flush_with_dict_queue_file(self, tmp_plugin_dir, slack_config):
+        import send_notification as mod
+        with open(mod.QUEUE_PATH, "w", encoding="utf-8") as f:
+            json.dump({"corrupt": True}, f)
+        ch = SlackChannel()
+        sent, failed = flush_queue(ch, slack_config)
+        assert sent == 0
+        assert failed == 0

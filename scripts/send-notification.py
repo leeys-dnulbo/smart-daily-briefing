@@ -184,6 +184,10 @@ class SlackChannel(NotificationChannel):
         for a in anomalies:
             metric = a.get("metric", "?")
             change = a.get("change_pct", 0)
+            try:
+                change = float(change)
+            except (TypeError, ValueError):
+                change = 0.0
             severity = a.get("severity", "warning")
             icon = ":rotating_light:" if severity == "critical" else ":warning:"
             direction = "+" if change > 0 else ""
@@ -238,6 +242,8 @@ def enqueue(msg_type, payload):
         try:
             with open(QUEUE_PATH, encoding="utf-8") as f:
                 queue = json.load(f)
+            if not isinstance(queue, list):
+                queue = []
         except (json.JSONDecodeError, OSError):
             queue = []
 
@@ -282,6 +288,8 @@ def flush_queue(channel, config):
     try:
         with open(QUEUE_PATH, encoding="utf-8") as f:
             queue = json.load(f)
+        if not isinstance(queue, list):
+            return 0, 0
     except (json.JSONDecodeError, OSError):
         return 0, 0
 

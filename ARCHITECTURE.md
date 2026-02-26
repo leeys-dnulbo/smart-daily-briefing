@@ -236,7 +236,7 @@ graph TB
 
     Detect -->|Claude Code| CC[슬래시 커맨드<br/><small>/smart-briefing:briefing</small>]
     Detect -->|OpenClaw| OC[자연어 스킬<br/><small>"브리핑 생성해줘"</small>]
-    Detect -->|Cowork| CW[자연어 요청<br/><small>COWORK.md 부트스트랩</small>]
+    Detect -->|Cowork| CW[자연어 요청<br/><small>CLAUDE.md 자동 로드</small>]
 
     CC --> Core[공통 로직<br/><small>GA4 조회 → 분석 → 저장</small>]
     OC --> Core
@@ -476,8 +476,8 @@ flowchart LR
 
 | 제약 | 대응 |
 |------|------|
-| SessionStart 훅 없음 | `COWORK.md` 부트스트랩 (사용자가 수동 로드) |
-| PreToolUse 훅 없음 | COWORK.md에 차트/PDF 규칙 명시 (자기 준수) |
+| SessionStart 훅 없음 | CLAUDE.md 자동 로드 + `${SMART_BRIEFING_ROOT:-$(pwd)}` fallback |
+| PreToolUse 훅 없음 | CLAUDE.md에 차트/PDF 규칙 명시 (자기 준수) |
 | 슬래시 명령 없음 | 자연어 명령 (OpenClaw과 동일) |
 | systemd/cron 없음 | `manage-schedule.sh` 가드 + 에러 안내 |
 | HTTP 프록시 경유 | urllib이 `HTTP_PROXY` 환경변수 자동 인식 |

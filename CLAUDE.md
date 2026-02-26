@@ -3,8 +3,6 @@
 GA4 데이터를 대화형으로 분석하는 AI 에이전트 플러그인입니다.
 Claude Code, OpenClaw, Cowork(Claude Desktop) 세 플랫폼에서 사용할 수 있습니다.
 
-> **Cowork 사용자**: `COWORK.md`를 참고하세요. Cowork 환경 전용 부트스트랩 파일입니다.
-
 ## 플러그인 상태 확인
 
 이 프로젝트가 로드되면 가장 먼저 GA4 MCP 서버 연결 상태를 확인하세요.
@@ -19,7 +17,7 @@ GA4 MCP 서버가 연결되지 않았습니다.
 - 없으면: cp .mcp.json.example .mcp.json 후 값을 입력하세요.
 - 있으면: `/smart-briefing:setup` 으로 설정 상태를 점검하세요.
 
-OpenClaw 사용자는 docs/openclaw-setup.md를 참고하세요.
+OpenClaw 사용자는 docs/openclaw-setup.md를, Cowork 사용자는 docs/cowork-setup.md를 참고하세요.
 ```
 
 ## 사용 가능한 기능
@@ -65,14 +63,15 @@ OpenClaw 사용자는 docs/openclaw-setup.md를 참고하세요.
 
 ### 스크립트 경로
 
-SessionStart 훅이 `$SMART_BRIEFING_ROOT` 환경변수를 자동 설정합니다.
-모든 스크립트는 이 변수를 기준으로 참조하세요:
+Claude Code에서는 SessionStart 훅이 `$SMART_BRIEFING_ROOT`를 자동 설정합니다.
+Cowork/OpenClaw 등 훅이 없는 환경에서는 프로젝트 루트의 절대경로를 직접 사용하세요.
 
 ```bash
-# $SMART_BRIEFING_ROOT는 SessionStart 훅이 자동 설정 (Claude Code)
-# Cowork에서는 프로젝트 루트 디렉토리의 절대경로를 직접 사용
-CHART_SCRIPT="${SMART_BRIEFING_ROOT}/scripts/generate-charts.py"
-python3 "$CHART_SCRIPT" \
+# Claude Code: $SMART_BRIEFING_ROOT 자동 설정
+# Cowork/OpenClaw: 프로젝트 루트 절대경로 사용
+ROOT="${SMART_BRIEFING_ROOT:-$(pwd)}"
+
+python3 "${ROOT}/scripts/generate-charts.py" \
   --input briefings/charts/{날짜}/data.json \
   --output-dir briefings/charts/{날짜}/ \
   --format auto
@@ -80,6 +79,6 @@ python3 "$CHART_SCRIPT" \
 
 PDF 생성도 동일:
 ```bash
-PDF_SCRIPT="${SMART_BRIEFING_ROOT}/scripts/generate-pdf.py"
-python3 "$PDF_SCRIPT" --input briefings/{날짜}.md --output briefings/{날짜}.pdf --charts-dir briefings/charts/{날짜}/
+ROOT="${SMART_BRIEFING_ROOT:-$(pwd)}"
+python3 "${ROOT}/scripts/generate-pdf.py" --input briefings/{날짜}.md --output briefings/{날짜}.pdf --charts-dir briefings/charts/{날짜}/
 ```

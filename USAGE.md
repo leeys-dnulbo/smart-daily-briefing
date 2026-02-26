@@ -20,8 +20,7 @@ GA4 MCP 서버 연결 상태를 확인하고, `.mcp.json` 설정을 안내합니
 
 [docs/cowork-setup.md](docs/cowork-setup.md)를 참고하여 설정합니다:
 1. 호스트 측 Claude Desktop에서 MCP 서버 등록
-2. Cowork에서 프로젝트 열기
-3. 첫 메시지: "COWORK.md 읽어줘"
+2. Cowork에서 프로젝트 열기 (CLAUDE.md가 자동 로드됩니다)
 
 ### 환경 진단 (헬스체크)
 

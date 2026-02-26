@@ -91,8 +91,7 @@ cp .mcp.json.example .mcp.json
 > 상세 가이드: [docs/cowork-setup.md](docs/cowork-setup.md)
 
 1. 호스트 측 Claude Desktop에서 MCP 서버 등록 (`.mcp.json.example` 참고)
-2. Cowork에서 프로젝트 디렉토리 열기
-3. 첫 메시지: "COWORK.md 읽어줘"
+2. Cowork에서 프로젝트 디렉토리 열기 (CLAUDE.md가 자동 로드됩니다)
 
 ---
 
@@ -204,7 +203,7 @@ OpenClaw에서는 커맨드 대신 자연어로 동일한 기능을 사용합니
 /smart-briefing:setup healthcheck --json # JSON 형식 출력
 ```
 
-Python 환경, 필수 패키지, 폰트, Slack/Telegram/Discord 연결, config 버전 등 11개 항목을 점검합니다.
+Python 환경, 필수 패키지, 폰트, Slack/Telegram/Discord 연결, config 버전, 네트워크 프록시 등 12개 항목을 점검합니다.
 
 ### 자동 브리핑 스케줄
 
@@ -345,8 +344,7 @@ smart-daily-briefing/
 ├── config.json.example        # 브리핑 개인화 설정 템플릿
 ├── .mcp.json.example          # MCP 서버 설정 템플릿 (Claude Code)
 ├── openclaw.json.example      # MCP 서버 설정 템플릿 (OpenClaw)
-├── CLAUDE.md                  # 자동 로드 컨텍스트 (Claude Code)
-├── COWORK.md                  # 세션 부트스트랩 (Cowork)
+├── CLAUDE.md                  # 자동 로드 컨텍스트 (Claude Code / Cowork)
 ├── reports/                   # 저장된 리포트 (.json)
 └── briefings/                 # 생성된 브리핑 (.md, .pdf, charts/)
 ```

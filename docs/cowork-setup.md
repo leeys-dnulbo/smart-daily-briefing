@@ -43,19 +43,13 @@ Cowork에서 `smart-daily-briefing` 프로젝트 디렉토리를 엽니다.
 
 ## 3단계: 세션 시작
 
-첫 메시지로 에이전트를 초기화합니다:
+Cowork에서 프로젝트를 열면 `CLAUDE.md`가 자동으로 로드되어 에이전트 컨텍스트가 설정됩니다.
+바로 자연어로 기능을 사용할 수 있습니다:
 
 ```
-COWORK.md 읽어줘
+"이번 주 세션 수 보여줘"
+"브리핑 생성해줘"
 ```
-
-또는:
-
-```
-Smart Daily Briefing 시작해줘
-```
-
-에이전트가 프로젝트 상태를 확인하고 사용 가능한 기능을 안내합니다.
 
 ## 사용 방법
 
@@ -80,9 +74,9 @@ Smart Daily Briefing 시작해줘
 | 기능 | Claude Code | OpenClaw | Cowork |
 |------|:-----------:|:--------:|:------:|
 | 입력 방식 | 슬래시 명령 + 자연어 | 자연어 | 자연어 |
-| 에이전트 컨텍스트 | CLAUDE.md 자동 로드 | SKILL.md 자동 로드 | COWORK.md 수동 로드 |
-| 환경변수 주입 | SessionStart 훅 | 해당 없음 | 수동 (pwd 기반) |
-| 코드 검증 훅 | PreToolUse 자동 | 해당 없음 | 자기 준수 |
+| 에이전트 컨텍스트 | CLAUDE.md 자동 로드 | SKILL.md 자동 로드 | CLAUDE.md 자동 로드 |
+| 환경변수 주입 | SessionStart 훅 | 해당 없음 | pwd 기반 fallback |
+| 코드 검증 훅 | PreToolUse 자동 | 해당 없음 | CLAUDE.md 규칙 준수 |
 | 스케줄링 | launchd/systemd | openclaw cron | 미지원 |
 | PDF 생성 | 지원 | 지원 | 제한적 |
 | 알림 채널 | 멀티채널 | 멀티채널 | 제한적 |
@@ -125,8 +119,8 @@ ARM64 Linux에서는 추가 시스템 라이브러리가 필요할 수 있습니
 
 ### 한글 깨짐 (차트)
 
-- 프로젝트에 포함된 NanumGothic 폰트가 자동 감지됩니다 (`fonts/` 디렉토리)
-- `generate-charts.py` 스크립트를 통해 차트를 생성하면 자동 처리됩니다
+- 프로젝트에 번들된 NanumGothic 폰트가 자동 감지됩니다 (`fonts/` 디렉토리)
+- 반드시 `generate-charts.py` 스크립트를 통해 차트를 생성하세요 (자동 처리)
 
 ### 네트워크 오류
 

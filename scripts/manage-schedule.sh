@@ -60,12 +60,12 @@ weekday_to_korean() {
   esac
 }
 
-# Slack 상태 확인
+# Slack 상태 확인 (경로를 인자로 전달하여 인젝션 방지)
 check_slack_status() {
-  python3 -c "
-import json
+  python3 - "${PLUGIN_DIR}/config.json" << 'PYEOF' 2>/dev/null || echo "OFF"
+import json, sys
 try:
-    with open('${PLUGIN_DIR}/config.json') as f:
+    with open(sys.argv[1]) as f:
         c = json.load(f)
     s = c.get('notifications', {}).get('slack', {})
     if s.get('webhook_url') and s.get('enabled', True):
@@ -74,7 +74,7 @@ try:
         print('OFF')
 except Exception:
     print('OFF')
-" 2>/dev/null || echo "OFF"
+PYEOF
 }
 
 # ---------------------------------------------------------------------------
@@ -358,6 +358,12 @@ CONTENT_EOF
       exit 1
     fi
 
+    # 리포트 이름 검증 (영문, 숫자, 하이픈, 언더스코어만 허용)
+    if ! echo "$REPORT_NAME" | grep -qE '^[a-zA-Z0-9_-]+$'; then
+      echo "ERROR: 리포트 이름은 영문, 숫자, 하이픈(-), 언더스코어(_)만 사용할 수 있습니다: ${REPORT_NAME}" >&2
+      exit 1
+    fi
+
     REPORT_LABEL="com.smart-briefing.report.${REPORT_NAME}"
     REPORT_RUN_SCRIPT="${PLUGIN_DIR}/scripts/run-report-${REPORT_NAME}.sh"
 
@@ -396,6 +402,11 @@ CONTENT_EOF
     WEEKDAY=""
     if [ "$FREQUENCY" = "weekly" ] && [ -n "$DAY_OF_WEEK" ]; then
       WEEKDAY=$(day_to_weekday "$DAY_OF_WEEK")
+      if [ -z "$WEEKDAY" ]; then
+        echo "ERROR: 인식할 수 없는 요일입니다: ${DAY_OF_WEEK}" >&2
+        echo "사용 가능: sunday/sun/일, monday/mon/월, tuesday/tue/화, wednesday/wed/수, thursday/thu/목, friday/fri/금, saturday/sat/토" >&2
+        exit 1
+      fi
     fi
 
     # 스케줄 등록

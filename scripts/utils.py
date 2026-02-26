@@ -9,7 +9,6 @@ generate-charts.py, generate-pdf.py에서 공유하는 유틸리티 함수:
 - 안전한 파일 쓰기 (atomic write)
 """
 
-import glob
 import json
 import os
 import platform
@@ -47,7 +46,10 @@ def reexec_with_better_python(test_import):
             )
             if result.returncode == 0:
                 print(f"  Re-exec with: {py}", file=sys.stderr)
-                os.execv(py, [py] + sys.argv)
+                try:
+                    os.execv(py, [py] + sys.argv)
+                except OSError as e:
+                    print(f"  WARNING: os.execv failed for {py}: {e}", file=sys.stderr)
         except (OSError, subprocess.TimeoutExpired):
             continue
 
@@ -125,9 +127,6 @@ def find_korean_font():
     # 2순위: 플랫폼별 시스템 폰트
     system = platform.system()
     for path in FONT_SEARCH_PATHS.get(system, []):
-        matches = glob.glob(path)
-        if matches:
-            return matches[0]
         if os.path.exists(path):
             return path
 
@@ -177,14 +176,15 @@ def safe_write(path, data, encoding='utf-8'):
         data: 쓸 문자열 데이터
         encoding: 인코딩 (기본 utf-8)
     """
-    dir_path = os.path.dirname(os.path.abspath(path))
+    abs_path = os.path.abspath(path)
+    dir_path = os.path.dirname(abs_path)
     os.makedirs(dir_path, exist_ok=True)
 
     fd, tmp_path = tempfile.mkstemp(dir=dir_path, suffix='.tmp')
     try:
         with os.fdopen(fd, 'w', encoding=encoding) as f:
             f.write(data)
-        os.replace(tmp_path, path)
+        os.replace(tmp_path, abs_path)
     except Exception:
         try:
             os.unlink(tmp_path)

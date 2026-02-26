@@ -136,11 +136,49 @@ class TestWriteAllowing:
         self._assert_allowed(result)
 
 
+class TestBypassPrevention:
+    """우회 시도가 올바르게 차단되는지 검증"""
+
+    def _assert_denied(self, result):
+        assert result.returncode == 2
+        output = json.loads(result.stdout)
+        assert output["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    def test_blocks_comment_bypass(self):
+        """주석에 generate-charts.py를 넣어 우회 시도 차단"""
+        result = run_hook("Bash", {
+            "command": "python3 -c 'import matplotlib' # generate-charts.py"
+        })
+        self._assert_denied(result)
+
+    def test_blocks_importlib(self):
+        """importlib.import_module 우회 차단"""
+        result = run_hook("Bash", {
+            "command": "python3 -c 'import importlib; importlib.import_module(\"matplotlib\")'"
+        })
+        self._assert_denied(result)
+
+    def test_blocks_full_path_python(self):
+        """/usr/bin/python3 경로로 실행해도 차단"""
+        result = run_hook("Bash", {
+            "command": "/usr/bin/python3 -c 'import matplotlib'"
+        })
+        self._assert_denied(result)
+
+    def test_blocks_path_traversal_write(self):
+        """경로 조작으로 scripts/ 디렉토리 위장 시도 차단"""
+        result = run_hook("Write", {
+            "file_path": "/tmp/../tmp/smart-daily-briefing/scripts/../../../evil.py",
+            "content": "import matplotlib"
+        })
+        self._assert_denied(result)
+
+
 class TestEdgeCases:
     """엣지 케이스"""
 
     def test_invalid_json_input(self):
-        """잘못된 JSON 입력은 허용 (exit 0)"""
+        """잘못된 JSON 입력은 허용 (exit 0) + stderr 경고 확인"""
         result = subprocess.run(
             [sys.executable, HOOK_SCRIPT],
             input="not json at all",
@@ -149,6 +187,7 @@ class TestEdgeCases:
             timeout=10,
         )
         assert result.returncode == 0
+        assert "WARNING" in result.stderr
 
     def test_empty_tool_input(self):
         """빈 tool_input은 허용"""

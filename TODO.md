@@ -96,7 +96,7 @@ Claude Code와 OpenClaw 두 플랫폼에서 모두 사용 가능.
 - [x] `manage-schedule.sh` DRY 리팩토링 (validate_time, generate_plist/run_script, Linux systemd 지원)
 - [x] `send-slack.sh` 재시도 로직 (send_with_retry, notification-queue.json)
 - [x] JSON sidecar 저장 (briefings/YYYY-MM-DD.json, 비교/주간 기능 전제조건)
-- [x] 테스트 프레임워크 (pytest, 35 tests: utils + AST 검증)
+- [x] 테스트 프레임워크 (pytest 기반 테스트 스위트: utils + AST 검증)
 - [x] OpenClaw 강화 (openclaw.json.example 환경변수/채널/타임존, setup docs 트러블슈팅)
 
 ### 추가 기능 (향후)

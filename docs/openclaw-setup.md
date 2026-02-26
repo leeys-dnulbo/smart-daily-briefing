@@ -84,7 +84,7 @@ ln -s /path/to/smart-daily-briefing/skills/schedule-helper ~/.openclaw/skills/sc
 
 ## 2단계: 동작 확인
 
-OpenClaw을 재시작한 후, 채팅에서 테스트합니다:
+OpenClaw를 재시작한 후, 채팅에서 테스트합니다:
 
 ```
 이번 주 세션 수 알려줘
@@ -129,7 +129,7 @@ pipx run google-analytics-mcp --health-check
 | 기능 | Claude Code | OpenClaw |
 |------|-------------|----------|
 | 슬래시 명령 (`/smart-briefing:*`) | 지원 | 자연어로 요청 |
-| 스케줄링 | macOS launchd | OpenClaw cron (크로스 플랫폼) |
+| 스케줄링 | macOS launchd / Linux systemd | OpenClaw cron (크로스 플랫폼) |
 | 알림 | Slack 웹훅 | 멀티채널 (Slack, Telegram, Discord 등) |
 | 차트 생성 | 지원 | 지원 (Python 필요) |
 
@@ -150,6 +150,8 @@ openclaw cron list
 # 스케줄 삭제
 openclaw cron remove "GA4-daily-briefing"
 ```
+
+> **참고**: 브리핑 생성 시 마크다운(`briefings/YYYY-MM-DD.md`) 외에 구조화된 JSON sidecar 파일(`briefings/YYYY-MM-DD.json`)도 함께 저장됩니다. 이 파일은 브리핑 비교, 주간 요약 등 후속 기능에서 활용됩니다.
 
 ## 채널 알림 설정
 
@@ -252,7 +254,7 @@ openclaw cron add --name "GA4-daily-briefing" \
    ls -la ~/.openclaw/skills/
    ```
 
-3. OpenClaw을 재시작하여 스킬을 다시 로드:
+3. OpenClaw를 재시작하여 스킬을 다시 로드:
    ```bash
    openclaw restart
    # 또는 OpenClaw 프로세스를 종료 후 재시작

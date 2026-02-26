@@ -19,7 +19,6 @@ import json
 import math
 import os
 import platform
-import subprocess
 import sys
 
 # ---------- 공통 유틸리티 ----------
@@ -89,7 +88,7 @@ def format_number(value):
         except ValueError:
             return value
     if isinstance(value, float):
-        if value == int(value):
+        if value.is_integer():
             return f'{int(value):,}'
         return f'{value:,.1f}'
     return f'{value:,}'
@@ -97,9 +96,11 @@ def format_number(value):
 
 def format_date(date_str):
     """YYYYMMDD -> MM/DD"""
+    if not date_str:
+        return '?'
     if len(date_str) == 8 and date_str.isdigit():
         return f'{date_str[4:6]}/{date_str[6:8]}'
-    return date_str or '?'
+    return date_str
 
 
 # ============================================================
@@ -341,10 +342,6 @@ class SvgChartGenerator:
         svg += self._footer()
         return svg
 
-
-# ============================================================
-#  폰트 검색: utils.py의 find_korean_font() 사용
-# ============================================================
 
 
 # ============================================================

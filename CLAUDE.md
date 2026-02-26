@@ -72,5 +72,5 @@ python3 "$CHART_SCRIPT" \
 PDF 생성도 동일:
 ```bash
 PDF_SCRIPT="${SMART_BRIEFING_ROOT}/scripts/generate-pdf.py"
-python3 "$PDF_SCRIPT" --input briefings/{날짜}.md --output briefings/{날짜}.pdf
+python3 "$PDF_SCRIPT" --input briefings/{날짜}.md --output briefings/{날짜}.pdf --charts-dir briefings/charts/{날짜}/
 ```

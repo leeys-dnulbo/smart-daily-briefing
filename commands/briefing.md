@@ -330,7 +330,7 @@ Unicode 블록 차트가 포함된 브리핑을 터미널에 그대로 표시합
 
 **sidecar JSON 생성 규칙:**
 - `metrics`: overview 섹션의 현재/이전 기간 값과 변화율. 이전 기간이 없으면 `previous`와 `change_pct`를 `null`로.
-- `anomalies`: `anomaly_threshold` 이상 변화한 지표 목록. severity는 threshold 기준: threshold~threshold×1.5 = "warning", 그 이상 = "critical".
+- `anomalies`: `anomaly_threshold` 이상 변화한 지표 목록. severity는 threshold 기준: threshold 이상 ~ threshold × 1.5 미만 = "warning", threshold × 1.5 이상 = "critical".
 - `insights`: 브리핑에서 도출한 인사이트 목록 (최대 `max_insights`개).
 - `top_sources`: traffic_sources 섹션 상위 5개. 섹션이 비활성이면 빈 배열.
 - `top_pages`: top_pages 섹션 상위 5개. 섹션이 비활성이면 빈 배열.

@@ -38,12 +38,24 @@ if ! command -v flock >/dev/null 2>&1; then
     local retries=0
     while ! mkdir "$LOCK_FILE.d" 2>/dev/null; do
       retries=$((retries + 1))
+      # stale lock 감지: PID 파일이 있고 해당 프로세스가 없으면 제거
+      if [ "$retries" -eq 10 ] && [ -f "$LOCK_FILE.d/pid" ]; then
+        local old_pid
+        old_pid=$(cat "$LOCK_FILE.d/pid" 2>/dev/null || echo "")
+        if [ -n "$old_pid" ] && ! kill -0 "$old_pid" 2>/dev/null; then
+          log "WARNING: Removing stale lock (pid=$old_pid)"
+          rmdir "$LOCK_FILE.d" 2>/dev/null || rm -rf "$LOCK_FILE.d" 2>/dev/null
+          continue
+        fi
+      fi
       if [ "$retries" -ge 30 ]; then
         log "WARNING: Could not acquire lock after 30 attempts"
         return 1
       fi
       sleep 0.1
     done
+    # PID 기록
+    echo $$ > "$LOCK_FILE.d/pid" 2>/dev/null || true
     _lock_acquired=1
     # Ensure the lock directory is removed on exit
     trap '_mkdir_unlock' EXIT
@@ -96,9 +108,10 @@ send_with_retry() {
   local backoff=1
 
   while [ "$attempt" -le "$MAX_RETRIES" ]; do
-    LAST_HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+    # payload를 stdin으로 전달하여 셸 확장에 의한 인젝션 방지
+    LAST_HTTP_STATUS=$(printf '%s' "$payload" | curl -s -o /dev/null -w "%{http_code}" \
       -X POST -H "Content-Type: application/json" \
-      -d "$payload" \
+      --data-binary @- \
       "$webhook_url") || LAST_HTTP_STATUS="000"
 
     if [ "$LAST_HTTP_STATUS" = "200" ]; then
@@ -284,10 +297,12 @@ PYEOF
 # config.json에서 Slack 설정 읽기
 # ===========================================================================
 read_slack_config() {
-  python3 -c "
+  # 경로를 Python 인자로 전달하여 셸 인젝션 방지
+  python3 - "$CONFIG_FILE" << 'PYEOF' 2>/dev/null
 import json, sys
 try:
-    with open('$CONFIG_FILE') as f:
+    config_path = sys.argv[1]
+    with open(config_path) as f:
         config = json.load(f)
     slack = config.get('notifications', {}).get('slack', {})
     url = slack.get('webhook_url', '')
@@ -297,7 +312,7 @@ try:
     print(url)
 except Exception:
     sys.exit(1)
-" 2>/dev/null
+PYEOF
 }
 
 WEBHOOK_URL=$(read_slack_config) || {

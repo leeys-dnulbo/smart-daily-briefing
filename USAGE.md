@@ -298,7 +298,7 @@ openclaw cron add --name "GA4-daily-briefing" \
   --message "GA4 일일 브리핑을 생성해줘."
 ```
 
-> Telegram, Discord 채널은 v1.12.0에서 지원 예정입니다.
+> Telegram, Discord 채널은 v2.0.0에서 지원 예정입니다.
 
 ---
 
@@ -311,4 +311,4 @@ pip install pytest
 python3 -m pytest tests/ -v
 ```
 
-35개 테스트: utils.py 유틸리티 + AST 코드 검증기
+pytest 기반 테스트 스위트: utils.py 유틸리티 + AST 코드 검증기

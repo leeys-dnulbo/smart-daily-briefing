@@ -75,7 +75,10 @@ def get_font_face_css():
     if not font_path:
         return '', get_font_family_name(system), get_mono_family_name(system)
 
-    font_uri = f'file://{os.path.abspath(font_path)}'
+    abs_font_path = os.path.abspath(font_path)
+    # URI 특수문자 이스케이프 (CSS injection 방지)
+    from urllib.parse import quote
+    font_uri = 'file://' + quote(abs_font_path, safe='/:@')
 
     font_face_css = f"""
   @font-face {{
@@ -214,7 +217,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 def resolve_image_paths(html_content, base_dir, charts_dir=None):
     """HTML 내 상대 경로 이미지를 file:// 절대 경로로 변환"""
-    search_dirs = [base_dir]
+    search_dirs = [os.path.abspath(base_dir)]
     if charts_dir and os.path.isdir(charts_dir):
         search_dirs.append(os.path.abspath(charts_dir))
 
@@ -224,6 +227,9 @@ def resolve_image_paths(html_content, base_dir, charts_dir=None):
             return match.group(0)
         for d in search_dirs:
             abs_path = os.path.abspath(os.path.join(d, src))
+            # Path Traversal 방어: 해석된 경로가 허용된 디렉토리 하위인지 확인
+            if not abs_path.startswith(d + os.sep) and abs_path != d:
+                continue
             if os.path.exists(abs_path):
                 return f'src="file://{abs_path}"'
         return match.group(0)
@@ -257,8 +263,10 @@ def generate_pdf(input_path, output_path, charts_dir=None):
     font_face_css, font_family, mono_family = get_font_face_css()
 
     # HTML 템플릿에 래핑
+    # html_body 내 중괄호({})가 str.format과 충돌하지 않도록 이스케이프
+    safe_body = html_body.replace('{', '&#123;').replace('}', '&#125;')
     full_html = HTML_TEMPLATE.format(
-        content=html_body,
+        content=safe_body,
         font_face=font_face_css,
         font=font_family,
         mono_font=mono_family,

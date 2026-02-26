@@ -70,6 +70,15 @@ class TestSafeWrite:
             content = f.read()
         assert content.endswith("\n")
 
+    def test_safe_write_no_leftover_tmp(self, tmp_path):
+        """성공 후 .tmp 파일이 남아있지 않아야 함"""
+        dir_path = str(tmp_path / "clean_test")
+        os.makedirs(dir_path, exist_ok=True)
+        path = os.path.join(dir_path, "test.txt")
+        safe_write(path, "test data")
+        tmp_files = [f for f in os.listdir(dir_path) if f.endswith('.tmp')]
+        assert len(tmp_files) == 0
+
 
 class TestFontSearch:
     """폰트 검색 관련 테스트"""

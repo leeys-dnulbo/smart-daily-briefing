@@ -257,7 +257,7 @@ def find_plugin_script(script_name: str) -> str | None:
 
 
 def deny(reason: str):
-    """도구 호출을 차단하고 이유를 반환합니다. (exit 0 + JSON 출력)"""
+    """도구 호출을 차단하고 이유를 반환합니다. (exit 2 + JSON 출력)"""
     output = {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
@@ -318,8 +318,9 @@ def extract_python_from_bash(command: str) -> str | None:
     python -c "...", python3 -c '...', python3 << 'EOF' ... EOF 등의 패턴을 처리합니다.
     """
     # python -c "code" / python3 -c 'code' 패턴
+    # 경로 포함(/usr/bin/python3), 버전 포함(python3.12) 매칭 지원
     match = re.search(
-        r'''python[3]?\s+-c\s+(['"])(.*?)\1''',
+        r'''(?:^|/|\s)python[3]?(?:\.\d+)?\s+-c\s+(['"])(.*?)\1''',
         command,
         re.DOTALL,
     )
@@ -328,7 +329,7 @@ def extract_python_from_bash(command: str) -> str | None:
 
     # heredoc 패턴: python3 << 'EOF' ... EOF
     match = re.search(
-        r"""python[3]?\s+<<\s*['"]?(\w+)['"]?\s*\n(.*?)\n\1""",
+        r"""(?:^|/|\s)python[3]?(?:\.\d+)?\s+<<\s*['"]?(\w+)['"]?\s*\n(.*?)\n\1""",
         command,
         re.DOTALL,
     )
@@ -344,10 +345,13 @@ def check_bash(tool_input: dict):
     if not command:
         return
 
-    # 내장 스크립트 실행은 허용
+    # 내장 스크립트 실행은 허용 (실제 실행 패턴만 허용, 주석/문자열 내 포함 방지)
     for pattern in ALLOWED_SCRIPT_PATTERNS:
         if pattern in command:
-            return
+            # 주석(#) 이후에만 패턴이 나타나면 우회 시도로 간주
+            before_pattern = command.split(pattern)[0]
+            if '#' not in before_pattern:
+                return
 
     # 1) 전체 명령어를 텍스트 기반으로 먼저 검사 (빠른 경로)
     all_violations = text_fallback_check(command)
@@ -374,8 +378,9 @@ def check_write(tool_input: dict):
     if not content:
         return
 
-    # 플러그인 내장 스크립트 수정은 허용
-    if "smart-daily-briefing/scripts/" in file_path:
+    # 플러그인 내장 스크립트 수정은 허용 (경로 정규화로 .. 우회 방지)
+    norm_path = os.path.normpath(file_path)
+    if "/smart-daily-briefing/scripts/" in norm_path:
         return
 
     # Python 파일인 경우 AST 기반 정밀 검사
@@ -396,7 +401,9 @@ def main():
     try:
         data = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
-        # 입력 파싱 실패 시 허용 (안전 측면에서 차단할 수도 있지만 기존 동작 유지)
+        # 입력 파싱 실패 시 stderr 경고 후 허용 (fail-open)
+        # NOTE: fail-closed(exit 2)가 더 안전하나, 훅 프레임워크와의 호환성을 위해 허용 유지
+        print("WARNING: validate-chart-code hook received invalid JSON input", file=sys.stderr)
         sys.exit(0)
 
     tool_name = data.get("tool_name", "")

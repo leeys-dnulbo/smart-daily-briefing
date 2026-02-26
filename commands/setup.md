@@ -1,6 +1,6 @@
 ---
 description: Smart Briefing 초기 설정을 안내합니다. GA4 MCP 서버 연결 상태를 확인하고, 필요 시 사용자로부터 정보를 입력받아 .mcp.json을 생성합니다. 환경 진단(헬스체크)도 지원합니다.
-argument-hint: [healthcheck | healthcheck --json]
+argument-hint: [healthcheck | healthcheck --json | healthcheck --check 항목]
 ---
 
 # Smart Briefing 초기 설정
@@ -19,14 +19,18 @@ $ARGUMENTS
 
 1. Bash 도구로 실행합니다:
    ```bash
-   python3 scripts/healthcheck.py
+   python3 "${SMART_BRIEFING_ROOT}/scripts/healthcheck.py" --plugin-dir "${SMART_BRIEFING_ROOT}"
    ```
 2. `--json` 플래그가 있으면:
    ```bash
-   python3 scripts/healthcheck.py --json
+   python3 "${SMART_BRIEFING_ROOT}/scripts/healthcheck.py" --plugin-dir "${SMART_BRIEFING_ROOT}" --json
    ```
-3. 결과를 사용자에게 표시합니다.
-4. FAIL이나 WARN 항목이 있으면 해결 방법을 안내합니다:
+3. 특정 항목만 진단하려면 `--check` 플래그를 사용합니다:
+   ```bash
+   python3 "${SMART_BRIEFING_ROOT}/scripts/healthcheck.py" --plugin-dir "${SMART_BRIEFING_ROOT}" --check config,slack
+   ```
+4. 결과를 사용자에게 표시합니다.
+5. FAIL이나 WARN 항목이 있으면 해결 방법을 안내합니다:
    - `config`: "config.json.example을 복사하여 config.json을 생성하세요"
    - `python`: "Python 3.9 이상을 설치하세요"
    - `matplotlib`: "`pip install matplotlib` 로 설치하세요"

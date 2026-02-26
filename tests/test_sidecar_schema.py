@@ -157,6 +157,76 @@ class TestValidateSidecar:
         is_valid, warnings = validate_sidecar(data)
         assert any("top_sources" in w for w in warnings)
 
+    def test_top_pages_non_list_warns(self):
+        data = _make_valid_sidecar()
+        data["top_pages"] = "not a list"
+        is_valid, warnings = validate_sidecar(data)
+        assert any("top_pages" in w for w in warnings)
+
+    def test_metrics_non_dict_warns(self):
+        data = _make_valid_sidecar()
+        data["metrics"] = "not a dict"
+        is_valid, warnings = validate_sidecar(data)
+        assert any("metrics는 dict" in w for w in warnings)
+
+    def test_anomalies_non_list_warns(self):
+        data = _make_valid_sidecar()
+        data["anomalies"] = "not a list"
+        is_valid, warnings = validate_sidecar(data)
+        assert any("anomalies는 list" in w for w in warnings)
+
+    def test_insights_non_list_warns(self):
+        data = _make_valid_sidecar()
+        data["insights"] = "not a list"
+        is_valid, warnings = validate_sidecar(data)
+        assert any("insights는 list" in w for w in warnings)
+
+    def test_anomaly_non_dict_entry_warns(self):
+        data = _make_valid_sidecar()
+        data["anomalies"] = [42, "bad"]
+        is_valid, warnings = validate_sidecar(data)
+        assert any("anomalies[0]는 dict" in w for w in warnings)
+
+    def test_insight_invalid_severity_warns(self):
+        data = _make_valid_sidecar()
+        data["insights"] = [{"severity": "danger", "text": "test"}]
+        is_valid, warnings = validate_sidecar(data)
+        assert any("유효하지 않습니다" in w for w in warnings)
+
+    def test_anomaly_change_pct_non_numeric_warns(self):
+        data = _make_valid_sidecar()
+        data["anomalies"] = [
+            {"metric": "sessions", "change_pct": "big", "severity": "warning"}
+        ]
+        is_valid, warnings = validate_sidecar(data)
+        assert any("change_pct는 숫자" in w for w in warnings)
+
+    def test_schema_version_non_string_warns(self):
+        data = _make_valid_sidecar(schema_version=1.11)
+        is_valid, warnings = validate_sidecar(data)
+        assert any("schema_version은 문자열" in w for w in warnings)
+
+    def test_anomaly_threshold_non_numeric_warns(self):
+        data = _make_valid_sidecar(anomaly_threshold="high")
+        is_valid, warnings = validate_sidecar(data)
+        assert any("anomaly_threshold는 숫자" in w for w in warnings)
+
+    def test_comparable_keys_non_list_warns(self):
+        data = _make_valid_sidecar(comparable_keys="sessions")
+        is_valid, warnings = validate_sidecar(data)
+        assert any("comparable_keys는 list" in w for w in warnings)
+
+    def test_invalid_calendar_date_warns(self):
+        """9999-99-99 같은 잘못된 날짜를 잡아낸다"""
+        data = _make_valid_sidecar(date="2026-13-32")
+        is_valid, warnings = validate_sidecar(data)
+        assert any("YYYY-MM-DD" in w for w in warnings)
+
+    def test_date_non_string_warns(self):
+        data = _make_valid_sidecar(date=20260226)
+        is_valid, warnings = validate_sidecar(data)
+        assert any("문자열" in w for w in warnings)
+
 
 # ---------- normalize_sidecar 테스트 ----------
 
@@ -265,7 +335,9 @@ class TestAggregateSidecars:
         result = aggregate_sidecars(sidecars)
         # weighted avg: (0.40*1000 + 0.30*2000) / (1000+2000) = 1000/3000 = 0.3333...
         expected = (0.40 * 1000 + 0.30 * 2000) / 3000
-        assert abs(result["bounceRate"]["total"] - expected) < 0.0001
+        assert "weighted_avg" in result["bounceRate"]
+        assert "total" not in result["bounceRate"]
+        assert abs(result["bounceRate"]["weighted_avg"] - expected) < 0.0001
 
     def test_empty_sidecars_returns_empty(self):
         result = aggregate_sidecars([])
@@ -286,7 +358,7 @@ class TestAggregateSidecars:
         sidecars = [self._make_daily("2026-02-20", 1000, 0.40)]
         result = aggregate_sidecars(sidecars)
         assert result["sessions"]["total"] == 1000
-        assert result["bounceRate"]["total"] == 0.40
+        assert result["bounceRate"]["weighted_avg"] == 0.40
 
     def test_partial_metrics(self):
         """일부 sidecar에만 특정 메트릭이 있는 경우"""
@@ -307,3 +379,17 @@ class TestAggregateSidecars:
         expected_sessions = sum(1000 + i * 100 for i in range(7))
         assert result["sessions"]["total"] == expected_sessions
         assert len(result["sessions"]["daily_values"]) == 7
+
+    def test_unknown_metric_defaults_to_sum(self):
+        """SUM_METRICS에도 RATE_METRICS에도 없는 커스텀 메트릭은 SUM으로 처리"""
+        s1 = {"metrics": {"customMetric1": {"current": 100}}}
+        s2 = {"metrics": {"customMetric1": {"current": 200}}}
+        result = aggregate_sidecars([s1, s2])
+        assert result["customMetric1"]["total"] == 300
+
+    def test_metrics_non_dict_in_sidecar_skipped(self):
+        """sidecar의 metrics가 dict가 아니면 건너뛴다"""
+        s1 = {"metrics": "invalid"}
+        s2 = self._make_daily("2026-02-20", 1000, 0.40)
+        result = aggregate_sidecars([s1, s2])
+        assert "sessions" in result

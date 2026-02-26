@@ -131,7 +131,7 @@ Slack 알림이 설정되었습니다!
 
 ```json
 {
-  "version": "1.0",
+  "version": "1.11",
   "preset": "프리셋명",
   "briefing": {
     "sections": [
@@ -149,6 +149,14 @@ Slack 알림이 설정되었습니다!
     "anomaly_threshold": 20,
     "max_insights": 5,
     "max_actions": 4
+  },
+  "weekly": {
+    "schedule_day": "monday",
+    "schedule_time": "09:00",
+    "fallback_to_ga4": true
+  },
+  "export": {
+    "auto_pdf": true
   },
   "notifications": {
     "slack": {

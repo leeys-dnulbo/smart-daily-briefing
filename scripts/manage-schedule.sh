@@ -28,11 +28,11 @@ validate_time() {
   local hour="${time%%:*}"
   local minute="${time##*:}"
   # 10# 접두어로 08, 09 등의 8진수 해석 문제 방지
-  if [ "$((10#$hour))" -lt 0 ] || [ "$((10#$hour))" -gt 23 ]; then
+  if [ "$((10#$hour))" -gt 23 ]; then
     echo "ERROR: 시(hour)는 00-23 범위여야 합니다: ${hour}" >&2
     exit 1
   fi
-  if [ "$((10#$minute))" -lt 0 ] || [ "$((10#$minute))" -gt 59 ]; then
+  if [ "$((10#$minute))" -gt 59 ]; then
     echo "ERROR: 분(minute)은 00-59 범위여야 합니다: ${minute}" >&2
     exit 1
   fi
@@ -40,7 +40,9 @@ validate_time() {
 
 # 요일 이름 -> launchd Weekday 숫자 변환 (0=일, 1=월, ..., 6=토)
 day_to_weekday() {
-  case "$1" in
+  local input
+  input="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
+  case "$input" in
     sunday|sun|일)    echo 0 ;;
     monday|mon|월)    echo 1 ;;
     tuesday|tue|화)   echo 2 ;;
@@ -58,6 +60,11 @@ weekday_to_korean() {
     0) echo "일" ;; 1) echo "월" ;; 2) echo "화" ;; 3) echo "수" ;;
     4) echo "목" ;; 5) echo "금" ;; 6) echo "토" ;; *) echo "?" ;;
   esac
+}
+
+# XML 특수문자 이스케이프 (plist 생성 시 사용)
+xml_escape() {
+  printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g'
 }
 
 # Slack 상태 확인 (경로를 인자로 전달하여 인젝션 방지)
@@ -85,9 +92,7 @@ generate_run_script() {
   local script_path="$1"
   local script_content="$2"
 
-  cat > "$script_path" << RUNSCRIPT_EOF
-${script_content}
-RUNSCRIPT_EOF
+  printf '%s\n' "$script_content" > "$script_path"
   chmod +x "$script_path"
 }
 
@@ -105,6 +110,16 @@ generate_plist() {
   local plist_path="${HOME}/Library/LaunchAgents/${label}.plist"
   mkdir -p "${HOME}/Library/LaunchAgents"
 
+  # 8진수 리터럼 문제 방지: 선행 제로 제거
+  local int_hour="$((10#$hour))"
+  local int_minute="$((10#$minute))"
+
+  # XML 특수문자 이스케이프
+  local safe_label safe_args safe_log
+  safe_label="$(xml_escape "$label")"
+  safe_args="$(xml_escape "$program_args")"
+  safe_log="$(xml_escape "$LOG_FILE")"
+
   local weekday_entry=""
   if [ -n "$weekday" ]; then
     weekday_entry="    <key>Weekday</key>
@@ -117,23 +132,23 @@ generate_plist() {
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>${label}</string>
+  <string>${safe_label}</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>${program_args}</string>
+    <string>${safe_args}</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict>
     <key>Hour</key>
-    <integer>${hour}</integer>
+    <integer>${int_hour}</integer>
     <key>Minute</key>
-    <integer>${minute}</integer>
+    <integer>${int_minute}</integer>
 ${weekday_entry}  </dict>
   <key>StandardOutPath</key>
-  <string>${LOG_FILE}</string>
+  <string>${safe_log}</string>
   <key>StandardErrorPath</key>
-  <string>${LOG_FILE}</string>
+  <string>${safe_log}</string>
   <key>RunAtLoad</key>
   <false/>
 </dict>
@@ -182,7 +197,7 @@ Description=Smart Daily Briefing - ${unit_name}
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash ${program_args}
+ExecStart=/bin/bash "${program_args}"
 SERVICE_EOF
 
   # .timer 파일 생성
@@ -568,7 +583,7 @@ CONTENT_EOF
           if [ "$REPORT_COUNT" -eq 1 ]; then
             echo "REPORTS:"
           fi
-          RNAME=$(basename "$rplist" .plist | sed 's/com.smart-briefing.report.//')
+          RNAME=$(basename "$rplist" .plist | sed 's/^com\.smart-briefing\.report\.//')
           R_HOUR=$(plutil -extract StartCalendarInterval.Hour raw "$rplist" 2>/dev/null || echo "?")
           R_MIN=$(plutil -extract StartCalendarInterval.Minute raw "$rplist" 2>/dev/null || echo "?")
           R_WEEKDAY=$(plutil -extract StartCalendarInterval.Weekday raw "$rplist" 2>/dev/null) || R_WEEKDAY=""
@@ -587,7 +602,7 @@ CONTENT_EOF
           if [ "$REPORT_COUNT" -eq 1 ]; then
             echo "REPORTS:"
           fi
-          RNAME=$(basename "$rtimer" .timer | sed 's/com.smart-briefing.report.//')
+          RNAME=$(basename "$rtimer" .timer | sed 's/^com\.smart-briefing\.report\.//')
           TIMER_CAL=$(systemctl --user show "com.smart-briefing.report.${RNAME}.timer" --property=TimersCalendar 2>/dev/null || echo "?")
           printf "  %s | %s\n" "$RNAME" "$TIMER_CAL"
         done

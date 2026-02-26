@@ -17,10 +17,9 @@ Exit codes:
 """
 
 import argparse
-import glob
+import importlib.util
 import json
 import os
-import platform
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -76,7 +75,15 @@ class PythonEnvCheck(HealthCheckItem):
 
     def check(self, ctx):
         version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-        source = "homebrew" if "/opt/homebrew/" in sys.executable else "system"
+        exe = sys.executable
+        if "/opt/homebrew/" in exe or "/usr/local/Cellar/" in exe:
+            source = "homebrew"
+        elif "virtualenv" in exe or "venv" in exe or ".venv" in exe:
+            source = "venv"
+        elif "conda" in exe:
+            source = "conda"
+        else:
+            source = "system"
         if sys.version_info < (3, 9):
             return "WARN", f"{version} ({source}) — 3.9 이상 권장"
         return "OK", f"{version} ({source})"
@@ -130,14 +137,14 @@ class SlackCheck(HealthCheckItem):
             with open(config_path, encoding="utf-8") as f:
                 data = json.load(f)
         except (json.JSONDecodeError, OSError):
-            return "SKIP", "config.json 파싱 실패"
+            return "FAIL", "config.json 파싱 실패"
 
         slack = data.get("notifications", {}).get("slack", {})
         url = slack.get("webhook_url", "")
         if not url:
             return "SKIP", "webhook URL 미설정"
         if not url.startswith("https://"):
-            return "FAIL", f"잘못된 URL: {url[:30]}..."
+            return "FAIL", "webhook URL은 https://로 시작해야 합니다"
 
         # HEAD 요청으로 연결 테스트
         try:
@@ -182,19 +189,22 @@ class FontCheck(HealthCheckItem):
 
     def check(self, ctx):
         scripts_dir = os.path.join(ctx["plugin_dir"], "scripts")
-        sys.path.insert(0, scripts_dir)
+        utils_path = os.path.join(scripts_dir, "utils.py")
+        if not os.path.exists(utils_path):
+            return "WARN", "utils.py 파일 없음"
         try:
-            from utils import find_korean_font
-            font_path = find_korean_font()
+            spec = importlib.util.spec_from_file_location("utils", utils_path)
+            utils_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(utils_mod)
+            font_path = utils_mod.find_korean_font()
             if font_path:
                 name = os.path.basename(font_path)
                 return "OK", f"{name}"
             return "WARN", "한국어 폰트를 찾을 수 없음 (차트 한글 깨짐 가능)"
-        except ImportError:
+        except (ImportError, AttributeError):
             return "WARN", "utils.py import 실패"
-        finally:
-            if scripts_dir in sys.path:
-                sys.path.remove(scripts_dir)
+        except Exception as e:
+            return "WARN", f"폰트 확인 실패: {type(e).__name__}"
 
 
 class ScriptsCheck(HealthCheckItem):
@@ -237,9 +247,23 @@ def run_healthcheck(plugin_dir, checks=None):
         list of (key, name, status, message) 튜플
     """
     ctx = {"plugin_dir": plugin_dir}
-    items = ALL_CHECKS if checks is None else [CHECK_MAP[k] for k in checks if k in CHECK_MAP]
+    if checks is not None:
+        items = []
+        for k in checks:
+            if k in CHECK_MAP:
+                items.append(CHECK_MAP[k])
+            else:
+                # 알 수 없는 키는 FAIL로 기록
+                items.append(None)
+    else:
+        items = list(ALL_CHECKS)
+
     results = []
-    for item in items:
+    for i, item in enumerate(items):
+        if item is None:
+            key = checks[i] if checks else "unknown"
+            results.append((key, key, "FAIL", f"알 수 없는 진단 항목: {key}"))
+            continue
         try:
             status, message = item.check(ctx)
         except Exception as e:
@@ -252,7 +276,7 @@ def format_text(results):
     """결과를 터미널 텍스트로 포맷."""
     lines = ["Smart Daily Briefing — 환경 진단", ""]
     for key, name, status, message in results:
-        tag = f"[{status}]".ljust(6)
+        tag = f"[{status}]".ljust(7)
         lines.append(f"{tag} {name}: {message}")
 
     ok_count = sum(1 for _, _, s, _ in results if s == "OK")
@@ -267,7 +291,10 @@ def format_text(results):
     if skip_count: parts.append(f"{skip_count} 건너뜀")
 
     lines.append("")
-    lines.append(f"결과: {', '.join(parts)}")
+    if parts:
+        lines.append(f"결과: {', '.join(parts)}")
+    else:
+        lines.append("결과: 진단 항목 없음")
     return "\n".join(lines)
 
 
@@ -299,7 +326,7 @@ def main():
     args = parser.parse_args()
 
     plugin_dir = args.plugin_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    checks = args.check.split(",") if args.check else None
+    checks = [k.strip() for k in args.check.split(",")] if args.check else None
 
     results = run_healthcheck(plugin_dir, checks)
 

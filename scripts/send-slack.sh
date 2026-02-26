@@ -44,7 +44,8 @@ if ! command -v flock >/dev/null 2>&1; then
         old_pid=$(cat "$LOCK_FILE.d/pid" 2>/dev/null || echo "")
         if [ -n "$old_pid" ] && ! kill -0 "$old_pid" 2>/dev/null; then
           log "WARNING: Removing stale lock (pid=$old_pid)"
-          rmdir "$LOCK_FILE.d" 2>/dev/null || rm -rf "$LOCK_FILE.d" 2>/dev/null
+          rm -f "$LOCK_FILE.d/pid" 2>/dev/null
+          rmdir "$LOCK_FILE.d" 2>/dev/null || true
           continue
         fi
       fi
@@ -64,6 +65,7 @@ if ! command -v flock >/dev/null 2>&1; then
 
   _mkdir_unlock() {
     if [ "$_lock_acquired" -eq 1 ]; then
+      rm -f "$LOCK_FILE.d/pid" 2>/dev/null
       rmdir "$LOCK_FILE.d" 2>/dev/null || true
       _lock_acquired=0
     fi

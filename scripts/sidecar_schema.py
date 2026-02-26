@@ -20,21 +20,24 @@ RATE_METRICS = frozenset([
     "sessionsPerUser", "screenPageViewsPerSession",
 ])
 
-# 필수 최상위 필드
-REQUIRED_FIELDS = [
+# 핵심 필수 필드 (없으면 검증 실패)
+CRITICAL_FIELDS = frozenset({"date", "metrics"})
+
+# 전체 필수 최상위 필드
+REQUIRED_FIELDS = (
     "schema_version", "date", "preset", "date_range",
     "anomaly_threshold", "metrics", "anomalies", "insights",
     "comparable_keys",
-]
+)
 
 # anomaly 엔트리 필수 필드
-ANOMALY_REQUIRED = ["metric", "change_pct", "severity"]
+ANOMALY_REQUIRED = ("metric", "change_pct", "severity")
 
 # insight 엔트리 필수 필드
-INSIGHT_REQUIRED = ["severity", "text"]
+INSIGHT_REQUIRED = ("severity", "text")
 
 # severity 허용 값
-VALID_SEVERITIES = {"info", "warning", "critical"}
+VALID_SEVERITIES = frozenset({"info", "warning", "critical"})
 
 
 def validate_sidecar(data):
@@ -53,9 +56,7 @@ def validate_sidecar(data):
     if not isinstance(data, dict):
         return False, ["sidecar 데이터가 dict가 아닙니다"]
 
-    # 핵심 필수 필드 (없으면 검증 실패)
-    CRITICAL_FIELDS = {"date", "metrics"}
-    # 권장 필드 (없으면 경고만)
+    # 권장 필드 (없으면 경고만), 핵심 필드 (없으면 검증 실패)
     for field in REQUIRED_FIELDS:
         if field not in data:
             if field in CRITICAL_FIELDS:
@@ -63,18 +64,19 @@ def validate_sidecar(data):
             else:
                 warnings.append(f"권장 필드 누락: {field}")
 
-    missing_critical = [f for f in CRITICAL_FIELDS if f not in data]
-    if missing_critical:
+    if any(f not in data for f in CRITICAL_FIELDS):
         return False, warnings
 
-    # date 형식 (YYYY-MM-DD)
+    # date 형식 (YYYY-MM-DD) — datetime.date.fromisoformat으로 실제 유효성 검증
     date_val = data.get("date", "")
-    if isinstance(date_val, str) and len(date_val) == 10:
-        parts = date_val.split("-")
-        if len(parts) != 3 or not all(p.isdigit() for p in parts):
+    if isinstance(date_val, str) and date_val:
+        try:
+            from datetime import date as _date
+            _date.fromisoformat(date_val)
+        except (ValueError, TypeError):
             warnings.append(f"date 형식이 YYYY-MM-DD가 아닙니다: {date_val}")
-    elif date_val:
-        warnings.append(f"date 형식이 YYYY-MM-DD가 아닙니다: {date_val}")
+    elif date_val is not None and not isinstance(date_val, str):
+        warnings.append(f"date는 문자열이어야 합니다: {type(date_val).__name__}")
 
     # schema_version
     sv = data.get("schema_version")
@@ -116,6 +118,11 @@ def validate_sidecar(data):
             for req in ANOMALY_REQUIRED:
                 if req not in entry:
                     warnings.append(f"anomalies[{i}]에 {req} 필드가 없습니다")
+            change_pct = entry.get("change_pct")
+            if change_pct is not None and not isinstance(change_pct, (int, float)):
+                warnings.append(
+                    f"anomalies[{i}].change_pct는 숫자여야 합니다: {type(change_pct).__name__}"
+                )
             sev = entry.get("severity")
             if sev is not None and sev not in VALID_SEVERITIES:
                 warnings.append(
@@ -265,15 +272,23 @@ def aggregate_sidecars(sidecars):
                 "daily_values": values,
                 "avg": total / len(values),
             }
-        else:
-            # 가중 평균
+        elif key in RATE_METRICS:
+            # 비율/평균 메트릭: sessions 가중 평균
             weighted_sum = sum(v * w for v, w in zip(values, weights))
             weight_total = sum(weights)
             weighted_avg = weighted_sum / weight_total if weight_total > 0 else 0
             result[key] = {
-                "total": weighted_avg,
+                "weighted_avg": weighted_avg,
                 "daily_values": values,
                 "avg": weighted_avg,
+            }
+        else:
+            # 알 수 없는 메트릭: SUM 방식으로 기본 처리
+            total = sum(values)
+            result[key] = {
+                "total": total,
+                "daily_values": values,
+                "avg": total / len(values),
             }
 
     return result

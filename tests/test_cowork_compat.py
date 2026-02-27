@@ -1,14 +1,12 @@
 """tests/test_cowork_compat.py — Cowork(Claude Desktop) 호환성 테스트"""
 
-import importlib
-import json
 import os
 import platform
 import subprocess
 import sys
 import urllib.error
 import urllib.request
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -33,7 +31,8 @@ class TestProxyCheck:
         monkeypatch.delenv("HTTPS_PROXY", raising=False)
         monkeypatch.delenv("http_proxy", raising=False)
         monkeypatch.delenv("https_proxy", raising=False)
-        monkeypatch.setattr(os.path, "exists", lambda p: p != "/run/systemd/system")
+        original_exists = os.path.exists
+        monkeypatch.setattr(os.path, "exists", lambda p: False if p == "/run/systemd/system" else original_exists(p))
         status, msg = ProxyCheck().check({"plugin_dir": "."})
         assert status == "WARN"
         assert "컨테이너" in msg

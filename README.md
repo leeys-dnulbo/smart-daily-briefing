@@ -361,7 +361,7 @@ smart-daily-briefing/
 | 리포트 저장/실행 | O | O | O |
 | 차트 이미지 생성 | O | O | △ (Python 필요) |
 | PDF 내보내기 | O | O | △ (weasyprint 필요) |
-| 자동 스케줄링 | launchd / systemd | OpenClaw cron | X (ephemeral) |
+| 자동 스케줄링 | launchd / systemd | OpenClaw cron | /schedule (앱 실행 중) |
 | 멀티채널 알림 | O | O | △ (프록시 필요) |
 | 슬래시 커맨드 | O | - | - |
 

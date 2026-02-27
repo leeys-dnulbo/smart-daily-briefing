@@ -246,7 +246,7 @@ graph TB
 
     Schedule -->|Claude Code| Launchd[macOS launchd<br/><small>manage-schedule.sh</small>]
     Schedule -->|OpenClaw| Cron[OpenClaw cron<br/><small>크로스 플랫폼</small>]
-    Schedule -->|Cowork| Manual[수동 실행<br/><small>ephemeral 컨테이너</small>]
+    Schedule -->|Cowork| CoworkSched[Cowork /schedule<br/><small>앱 실행 중 자동</small>]
 ```
 
 ---
@@ -479,7 +479,7 @@ flowchart LR
 | SessionStart 훅 없음 | CLAUDE.md 자동 로드 + `${SMART_BRIEFING_ROOT:-$(pwd)}` fallback |
 | PreToolUse 훅 없음 | CLAUDE.md에 차트/PDF 규칙 명시 (자기 준수) |
 | 슬래시 명령 없음 | 자연어 명령 (OpenClaw과 동일) |
-| systemd/cron 없음 | `manage-schedule.sh` 가드 + 에러 안내 |
+| launchd/systemd 없음 | `manage-schedule.sh` 가드 + Cowork `/schedule` 안내 |
 | HTTP 프록시 경유 | urllib이 `HTTP_PROXY` 환경변수 자동 인식 |
 | macOS Homebrew 경로 | `utils.py` 플랫폼 가드 (`_IS_MACOS` 분기) |
 

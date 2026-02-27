@@ -304,7 +304,7 @@ Slack, Telegram, Discord로 브리핑/이상 탐지 알림을 받을 수 있습�
 
 매일/매주 정해진 시간에 자동으로 브리핑을 생성합니다.
 
-> **Cowork**: ephemeral 컨테이너이므로 자동 스케줄을 설치할 수 없습니다. 매 세션에서 수동으로 "브리핑 생성해줘"를 요청하세요.
+> **Cowork**: `/schedule` 명령 또는 사이드바 "Scheduled"에서 반복 작업을 설정할 수 있습니다. 단, 컴퓨터가 깨어있고 Claude Desktop 앱이 열려있을 때만 실행됩니다.
 
 ### 일일 브리핑 스케줄
 
@@ -321,6 +321,13 @@ openclaw cron add --name "GA4-daily-briefing" \
   --session isolated \
   --message "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘."
 ```
+
+**Cowork:**
+Cowork 태스크에서 `/schedule`을 입력하거나, 사이드바 "Scheduled" > "+ New task"로 생성합니다:
+- 프롬프트: "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘"
+- 주기: Daily
+
+> 참고: 컴퓨터가 깨어있고 Claude Desktop 앱이 열려있을 때만 실행됩니다.
 
 ### 주간 브리핑 스케줄
 
@@ -414,7 +421,7 @@ python3 -m pytest tests/ -v
 | 브리핑 개인화 | O | O | O |
 | 차트 생성 | O | O | △ (Python 필요) |
 | PDF 내보내기 | O | O | △ (weasyprint 필요) |
-| 자동 스케줄 | O (launchd/systemd) | O (cron) | X (ephemeral) |
+| 자동 스케줄 | O (launchd/systemd) | O (cron) | O (/schedule, 앱 실행 중) |
 | 이상 탐지 알림 | O (자동) | O (자동) | △ (프록시 필요) |
 | 알림 채널 (Slack 등) | O | O | △ (프록시 필요) |
 | 환경 진단 (헬스체크) | O | O | O |

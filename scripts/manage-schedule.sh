@@ -23,12 +23,12 @@ is_ephemeral_container() {
 
 require_persistent_env() {
   if is_ephemeral_container; then
-    echo "ERROR: 이 환경(컨테이너/Cowork)에서는 자동 스케줄을 설치할 수 없습니다." >&2
+    echo "ERROR: 이 환경(컨테이너)에서는 launchd/systemd 스케줄을 설치할 수 없습니다." >&2
     echo "" >&2
     echo "대안:" >&2
-    echo "  1. Cowork에서 직접 '브리핑 생성해줘'라고 요청하세요" >&2
-    echo "  2. Claude Code 환경에서 스케줄을 설치하세요" >&2
-    echo "  3. OpenClaw cron 기능을 사용하세요" >&2
+    echo "  1. Cowork: /schedule 명령으로 반복 작업을 설정하세요" >&2
+    echo "  2. Claude Code: manage-schedule.sh install 09:00" >&2
+    echo "  3. OpenClaw: openclaw cron add ..." >&2
     exit 1
   fi
 }

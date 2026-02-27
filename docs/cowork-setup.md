@@ -77,21 +77,29 @@ Cowork에서 프로젝트를 열면 `CLAUDE.md`가 자동으로 로드되어 에
 | 에이전트 컨텍스트 | CLAUDE.md 자동 로드 | SKILL.md 자동 로드 | CLAUDE.md 자동 로드 |
 | 환경변수 주입 | SessionStart 훅 | 해당 없음 | pwd 기반 fallback |
 | 코드 검증 훅 | PreToolUse 자동 | 해당 없음 | CLAUDE.md 규칙 준수 |
-| 스케줄링 | launchd/systemd | openclaw cron | 미지원 |
+| 스케줄링 | launchd/systemd | openclaw cron | /schedule (앱 실행 중) |
 | PDF 생성 | 지원 | 지원 | 제한적 |
 | 알림 채널 | 멀티채널 | 멀티채널 | 제한적 |
 | 상태 지속성 | 영구 | 영구 | 세션 단위 |
 
-## 제한사항
+## 자동 스케줄
 
-### 자동 스케줄
+Cowork의 내장 `/schedule` 기능으로 반복 브리핑을 설정할 수 있습니다.
 
-Cowork 컨테이너는 ephemeral(임시)이므로 영구 스케줄을 설치할 수 없습니다.
-매 세션에서 수동으로 "브리핑 생성해줘"를 요청하세요.
+### 설정 방법
 
-정기 브리핑이 필요하면:
-- **Claude Code**: `manage-schedule.sh install 09:00`
-- **OpenClaw**: `openclaw cron add ...`
+1. Cowork 태스크에서 `/schedule` 입력
+2. 또는 사이드바 "Scheduled" > "+ New task" 클릭
+3. 프롬프트: "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘"
+4. 주기 선택: Daily, Weekly, Weekdays 등
+
+### 제한사항
+
+- 컴퓨터가 깨어있고 Claude Desktop 앱이 열려있을 때만 실행됩니다
+- 놓친 실행은 앱 재시작 시 자동으로 실행됩니다
+- `manage-schedule.sh`(launchd/systemd)는 Cowork 컨테이너에서 사용할 수 없습니다
+
+## 기타 제한사항
 
 ### PDF 생성
 

@@ -127,15 +127,19 @@ openclaw cron add --name "GA4-daily-briefing" \
 
 ## Cowork (Claude Desktop) 환경
 
-Cowork는 내장 `/schedule` 기능으로 반복 작업을 설정할 수 있습니다.
-`manage-schedule.sh`(launchd/systemd)는 사용할 수 없으므로, Cowork 네이티브 스케줄을 안내하세요.
+Cowork는 `create_scheduled_task` 도구로 반복 작업을 설정할 수 있습니다.
+`manage-schedule.sh`(launchd/systemd)는 사용할 수 없으므로, Cowork 네이티브 스케줄을 사용하세요.
 
 ### 설정 방법
 
-1. Cowork 태스크에서 `/schedule` 입력
-2. 또는 사이드바 "Scheduled" > "+ New task" 클릭
-3. 프롬프트 예시: "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘"
-4. 주기 선택: Daily, Weekly, Weekdays 등
+`create_scheduled_task` 도구를 직접 호출하여 스케줄을 생성합니다:
+- name: "GA4 일일 브리핑" (또는 적절한 이름)
+- schedule: Daily/Weekly, {HH:MM}
+- prompt: "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘. config.json 설정에 따라 활성 섹션의 데이터를 수집하고 분석해."
+
+도구가 사용 불가능한 경우 (세션에 주입되지 않은 경우):
+1. 사이드바 "Scheduled" > "+ New task" 클릭을 안내합니다
+2. 이름, 프롬프트, 주기를 알려줍니다
 
 ### 제한사항
 

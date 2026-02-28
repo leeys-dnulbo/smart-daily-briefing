@@ -51,7 +51,7 @@ GA4 MCP 서버가 연결되지 않았습니다.
 
 ```json
 {
-  "version": "2.0",
+  "version": "2.1",
   "preset": "default",
   "briefing": {
     "sections": [
@@ -65,17 +65,28 @@ GA4 MCP 서버가 연결되지 않았습니다.
       { "id": "landing_pages", "name": "랜딩 페이지", "enabled": false, "metrics": ["sessions", "bounceRate", "averageSessionDuration"], "dimensions": ["landingPage"], "limit": 10 },
       { "id": "user_behavior", "name": "사용자 행동패턴", "enabled": false, "metrics": ["engagementRate", "sessionsPerUser", "screenPageViewsPerSession", "averageSessionDuration", "eventCount"], "dimensions": [], "compare_previous": true }
     ],
+    "custom_sections": [],
     "date_range": "7daysAgo",
     "anomaly_threshold": 20,
     "max_insights": 5,
     "max_actions": 4
+  },
+  "weekly": { "schedule_day": "monday", "schedule_time": "09:00", "fallback_to_ga4": true },
+  "export": { "auto_pdf": true },
+  "presets": { "custom": {} },
+  "notifications": {
+    "slack": { "webhook_url": "", "enabled": false },
+    "telegram": { "enabled": false, "bot_token": "", "chat_id": "" },
+    "discord": { "enabled": false, "webhook_url": "" },
+    "anomaly_alerts": { "enabled": true, "cooldown_hours": 4, "max_alerts_per_day": 10, "min_severity": "warning" }
   }
 }
 ```
 
 ## 2단계: 데이터 수집
 
-config의 `briefing.sections` 배열에서 **`enabled: true`인 섹션만** 순서대로 조회합니다.
+config의 `briefing.sections`와 `briefing.custom_sections`를 연결한 전체 섹션 배열에서 **`enabled: true`인 섹션만** 순서대로 조회합니다.
+커스텀 섹션도 내장 섹션과 동일한 방식으로 `get_ga4_data`를 호출합니다.
 
 각 섹션에 대해 `get_ga4_data`를 호출하세요:
 
@@ -117,7 +128,8 @@ bounceRate: sum(각 행의 bounceRate × sessions) / sum(sessions)
 
 ### 2.5.1 데이터 JSON 저장
 
-활성 섹션의 수집 데이터를 `briefings/charts/{오늘날짜}/data.json`에 저장하세요.
+활성 섹션(내장 + 커스텀)의 수집 데이터를 `briefings/charts/{오늘날짜}/data.json`에 저장하세요.
+커스텀 섹션은 `chart_type` 필드도 함께 저장합니다 (차트 스크립트가 이를 읽어 적절한 차트를 생성합니다).
 
 **data 필드 타입 규칙:**
 - 일반 섹션: `data`는 GA4 조회 결과 **행 배열** (`[{...}, {...}]`)
@@ -198,7 +210,8 @@ $PYTHON "$CHART_SCRIPT" \
 |------|------|------|--------|
 | ... | ... | ... | +/-% |
 
-{각 활성 섹션에 대해: 테이블 + 시각화 차트를 함께 표시}
+{각 활성 섹션(내장 + 커스텀)에 대해: 테이블 + 시각화 차트를 함께 표시}
+{커스텀 섹션의 chart_type에 따라: horizontal_bar→가로 막대, line→일별 트렌드 형식, pie→비율 표시, change_bar→변화율, none→차트 생략}
 
 ## 이상 탐지
 전주 대비 +{anomaly_threshold}% 또는 -{anomaly_threshold}% 이상 변화한 지표를 나열.
@@ -350,7 +363,7 @@ Unicode 블록 차트가 포함된 브리핑을 터미널에 그대로 표시합
 
 **sidecar JSON 생성 규칙:**
 - `schema_version`: 반드시 `"1.11"` 문자열.
-- `metrics`: overview 섹션의 현재/이전 기간 값과 변화율. 이전 기간이 없으면 `previous`와 `change_pct`를 `null`로.
+- `metrics`: overview 섹션의 현재/이전 기간 값과 변화율. 커스텀 섹션 중 `compare_previous: true`인 섹션의 메트릭도 포함. 이전 기간이 없으면 `previous`와 `change_pct`를 `null`로.
 - `anomalies`: `anomaly_threshold` 이상 변화한 지표 목록. severity는 threshold 기준: threshold 이상 ~ threshold × 1.5 미만 = "warning", threshold × 1.5 이상 = "critical".
 - `insights`: 브리핑에서 도출한 인사이트 목록 (최대 `max_insights`개).
 - `comparable_keys`: metrics의 키 목록 (정렬됨). 향후 비교 기능에서 사용.

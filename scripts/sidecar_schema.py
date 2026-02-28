@@ -12,12 +12,15 @@ SCHEMA_VERSION = "1.11"
 SUM_METRICS = frozenset([
     "sessions", "totalUsers", "newUsers", "screenPageViews",
     "eventCount", "conversions", "transactions", "totalRevenue",
+    "ecommercePurchases", "purchaseRevenue",
+    "advertiserAdCost", "advertiserAdClicks",
 ])
 
 # 비율/평균 메트릭: 기간 집계 시 sessions 가중 평균
 RATE_METRICS = frozenset([
     "bounceRate", "engagementRate", "averageSessionDuration",
     "sessionsPerUser", "screenPageViewsPerSession",
+    "sessionConversionRate", "returnOnAdSpend",
 ])
 
 # 핵심 필수 필드 (없으면 검증 실패)

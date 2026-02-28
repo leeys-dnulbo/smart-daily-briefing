@@ -304,7 +304,7 @@ Slack, Telegram, Discord로 브리핑/이상 탐지 알림을 받을 수 있습�
 
 매일/매주 정해진 시간에 자동으로 브리핑을 생성합니다.
 
-> **Cowork**: `/schedule` 명령 또는 사이드바 "Scheduled"에서 반복 작업을 설정할 수 있습니다. 단, 컴퓨터가 깨어있고 Claude Desktop 앱이 열려있을 때만 실행됩니다.
+> **Cowork**: `/smart-briefing:schedule install`을 실행하면 에이전트가 `create_scheduled_task` 도구로 자동 생성합니다. 또는 사이드바 "Scheduled"에서 수동 설정도 가능합니다. 단, 컴퓨터가 깨어있고 Claude Desktop 앱이 열려있을 때만 실행됩니다.
 
 ### 일일 브리핑 스케줄
 
@@ -323,9 +323,11 @@ openclaw cron add --name "GA4-daily-briefing" \
 ```
 
 **Cowork:**
-Cowork 태스크에서 `/schedule`을 입력하거나, 사이드바 "Scheduled" > "+ New task"로 생성합니다:
-- 프롬프트: "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘"
-- 주기: Daily
+```
+/smart-briefing:schedule install 09:00
+```
+에이전트가 `create_scheduled_task` 도구를 호출하여 자동 생성합니다.
+도구가 사용 불가능한 경우 사이드바 "Scheduled" > "+ New task"에서 수동 생성을 안내합니다.
 
 > 참고: 컴퓨터가 깨어있고 Claude Desktop 앱이 열려있을 때만 실행됩니다.
 
@@ -421,7 +423,7 @@ python3 -m pytest tests/ -v
 | 브리핑 개인화 | O | O | O |
 | 차트 생성 | O | O | △ (Python 필요) |
 | PDF 내보내기 | O | O | △ (weasyprint 필요) |
-| 자동 스케줄 | O (launchd/systemd) | O (cron) | O (/schedule, 앱 실행 중) |
+| 자동 스케줄 | O (launchd/systemd) | O (cron) | O (create_scheduled_task, 앱 실행 중) |
 | 이상 탐지 알림 | O (자동) | O (자동) | △ (프록시 필요) |
 | 알림 채널 (Slack 등) | O | O | △ (프록시 필요) |
 | 환경 진단 (헬스체크) | O | O | O |

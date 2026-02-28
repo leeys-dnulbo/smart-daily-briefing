@@ -77,21 +77,25 @@ Cowork에서 프로젝트를 열면 `CLAUDE.md`가 자동으로 로드되어 에
 | 에이전트 컨텍스트 | CLAUDE.md 자동 로드 | SKILL.md 자동 로드 | CLAUDE.md 자동 로드 |
 | 환경변수 주입 | SessionStart 훅 | 해당 없음 | pwd 기반 fallback |
 | 코드 검증 훅 | PreToolUse 자동 | 해당 없음 | CLAUDE.md 규칙 준수 |
-| 스케줄링 | launchd/systemd | openclaw cron | /schedule (앱 실행 중) |
+| 스케줄링 | launchd/systemd | openclaw cron | create_scheduled_task (앱 실행 중) |
 | PDF 생성 | 지원 | 지원 | 제한적 |
 | 알림 채널 | 멀티채널 | 멀티채널 | 제한적 |
 | 상태 지속성 | 영구 | 영구 | 세션 단위 |
 
 ## 자동 스케줄
 
-Cowork의 내장 `/schedule` 기능으로 반복 브리핑을 설정할 수 있습니다.
+`/smart-briefing:schedule install` 명령을 실행하면, 에이전트가 Cowork 네이티브 `create_scheduled_task` 도구를 호출하여 자동 스케줄을 생성합니다.
 
 ### 설정 방법
 
-1. Cowork 태스크에서 `/schedule` 입력
-2. 또는 사이드바 "Scheduled" > "+ New task" 클릭
-3. 프롬프트: "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘"
-4. 주기 선택: Daily, Weekly, Weekdays 등
+에이전트가 자동으로 처리합니다:
+```
+/smart-briefing:schedule install 09:00
+```
+
+또는 수동으로 사이드바 "Scheduled" > "+ New task"에서 직접 생성:
+- 프롬프트: "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘. config.json 설정에 따라 활성 섹션의 데이터를 수집하고 분석해."
+- 주기: Daily, Weekly, Weekdays 등
 
 ### 제한사항
 

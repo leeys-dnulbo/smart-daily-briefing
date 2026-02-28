@@ -13,7 +13,7 @@ $ARGUMENTS
 
 1. **OpenClaw 환경** (이 커맨드는 Claude Code 전용이므로 일반적으로 해당 없음. 만약 OpenClaw에서 스케줄 요청이 들어오면 `schedule-helper` 스킬이 처리합니다.)
 2. **Claude Code (macOS)**: `uname` 결과가 `Darwin`이면 아래 launchd 기반 방식으로 동작합니다.
-3. **그 외 (Linux 등)**: `uname` 결과가 `Darwin`이 아니면 수동 실행을 안내합니다.
+3. **Cowork/그 외 (Linux 등)**: `uname` 결과가 `Darwin`이 아니면 Cowork 네이티브 `create_scheduled_task` 도구로 직접 스케줄을 생성합니다. 도구가 사용 불가능한 경우 수동 안내로 폴백합니다.
 
 ## 동작 (Claude Code / macOS)
 
@@ -64,7 +64,11 @@ $ARGUMENTS
      ```bash
      bash scripts/manage-schedule.sh install-report {리포트파일명} {frequency} {time} [day]
      ```
-   - 비macOS인 경우: Cowork shortcut 생성 제안
+   - 비macOS인 경우: Cowork `create_scheduled_task` 도구로 직접 스케줄을 생성합니다:
+     - name: "GA4 리포트 - {리포트이름}"
+     - schedule: {사용자가 선택한 빈도}, {HH:MM}
+     - prompt: "reports/{리포트파일명}.json 리포트를 실행해줘. query 정보를 읽고 get_ga4_data로 데이터를 조회한 뒤 결과를 분석해서 보여줘."
+     - 도구가 사용 불가능한 경우 사이드바 "Scheduled" > "+ New task"에서 수동 생성을 안내합니다.
 7. 완료 안내:
    ```
    리포트 '{이름}' 스케줄이 설정되었습니다!
@@ -100,17 +104,20 @@ macOS launchd를 이용하여 매일 자동 브리핑 스케줄을 설치합니�
 
 **환경 감지:** 먼저 현재 환경이 macOS인지 확인합니다.
 - macOS가 아닌 경우 (Cowork/Linux VM 등): launchd를 사용할 수 없습니다.
-  사용자에게 Cowork shortcut 생성을 제안하세요:
-  ```
-  현재 환경에서는 launchd를 사용할 수 없습니다.
-  Cowork shortcut으로 스케줄을 설정할까요?
-  ```
-  사용자가 동의하면 `/create-shortcut` 명령을 실행하여 매일 {HH:MM}에 `/smart-briefing:briefing`을 실행하는 shortcut을 생성해주세요.
-  `/create-shortcut`이 사용 불가능한 환경이면 로컬 macOS 터미널에서 수동으로 설정하는 방법을 안내합니다:
-  ```
-  로컬 macOS 터미널에서 다음 명령을 실행하세요:
-  bash {플러그인경로}/scripts/manage-schedule.sh install {HH:MM}
-  ```
+  Cowork 네이티브 `create_scheduled_task` 도구로 직접 스케줄을 생성합니다:
+  1. 시간이 지정되지 않으면 사용자에게 물어봅니다 (기본값: 09:00)
+  2. `create_scheduled_task` 도구를 호출합니다:
+     - name: "GA4 일일 브리핑"
+     - schedule: Daily, {HH:MM}
+     - prompt: "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘. config.json 설정에 따라 활성 섹션의 데이터를 수집하고 분석해."
+  3. 도구가 사용 불가능한 경우 (세션에 주입되지 않은 경우) 수동 안내로 폴백합니다:
+     ```
+     create_scheduled_task 도구를 사용할 수 없습니다.
+     Cowork 사이드바 "Scheduled" > "+ New task"에서 직접 생성해주세요:
+     - 이름: GA4 일일 브리핑
+     - 프롬프트: "GA4 일일 브리핑을 생성하고 briefings/ 폴더에 저장해줘. config.json 설정에 따라 활성 섹션의 데이터를 수집하고 분석해."
+     - 주기: Daily, 시간: {HH:MM}
+     ```
 
 - macOS인 경우:
   1. 시간이 지정되지 않으면 사용자에게 물어봅니다 (기본값: 09:00)
@@ -154,6 +161,25 @@ macOS launchd를 이용하여 매일 자동 브리핑 스케줄을 설치합니�
 ### 인수가 "install-weekly" 또는 "install-weekly HH:MM [요일]"인 경우
 
 매주 자동 주간 브리핑 스케줄을 설치합니다. 기본값: 매주 월요일 09:00.
+
+**환경 감지:** 먼저 현재 환경이 macOS인지 확인합니다.
+- macOS가 아닌 경우 (Cowork/Linux VM 등): launchd를 사용할 수 없습니다.
+  Cowork 네이티브 `create_scheduled_task` 도구로 직접 스케줄을 생성합니다:
+  1. 시간/요일이 지정되지 않으면 기본값 사용 (09:00, 월요일)
+  2. `create_scheduled_task` 도구를 호출합니다:
+     - name: "GA4 주간 브리핑"
+     - schedule: Weekly, {요일} {HH:MM}
+     - prompt: "GA4 주간 브리핑을 생성하고 briefings/ 폴더에 저장해줘. config.json 설정에 따라 활성 섹션의 데이터를 수집하고 분석해."
+  3. 도구가 사용 불가능한 경우 수동 안내로 폴백합니다:
+     ```
+     create_scheduled_task 도구를 사용할 수 없습니다.
+     Cowork 사이드바 "Scheduled" > "+ New task"에서 직접 생성해주세요:
+     - 이름: GA4 주간 브리핑
+     - 프롬프트: "GA4 주간 브리핑을 생성하고 briefings/ 폴더에 저장해줘. config.json 설정에 따라 활성 섹션의 데이터를 수집하고 분석해."
+     - 주기: Weekly, 요일: {요일}, 시간: {HH:MM}
+     ```
+
+- macOS인 경우:
 
 1. 시간/요일이 지정되지 않으면 기본값 사용 (09:00, 월요일)
 2. Bash 도구로 실행합니다:

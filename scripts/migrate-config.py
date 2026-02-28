@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Smart Daily Briefing - config.json 마이그레이션 (v1.x → v2.0)
+Smart Daily Briefing - config.json 마이그레이션 (v1.x → v2.0 → v2.1)
 
-기존 config.json에 Telegram/Discord 채널 섹션을 추가하고
-version을 2.0으로 업데이트합니다.
+체인 마이그레이션으로 config.json을 최신 버전(v2.1)으로 업데이트합니다.
+- v1.x → v2.0: Telegram/Discord 채널 섹션 추가
+- v2.0 → v2.1: custom_sections, presets.custom 추가
 
 Usage:
     python3 scripts/migrate-config.py              # 마이그레이션 실행
@@ -22,23 +23,10 @@ def _find_plugin_dir():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def migrate_config(config):
-    """config dict를 v2.0 형식으로 마이그레이션.
-
-    Returns:
-        (migrated_config, list_of_changes)
-    """
+def _migrate_v1x_to_v20(migrated, old_version):
+    """v1.x → v2.0 마이그레이션 로직. migrated를 in-place 수정."""
     changes = []
-    version = config.get("version", "")
 
-    if version == "2.0":
-        return config, ["이미 v2.0입니다"]
-
-    # 원본 보호를 위해 deep copy
-    migrated = json.loads(json.dumps(config))
-
-    # version 업데이트
-    old_version = version or "(없음)"
     migrated["version"] = "2.0"
     changes.append(f"version: {old_version} -> 2.0")
 
@@ -74,6 +62,63 @@ def migrate_config(config):
         }
         changes.append("anomaly_alerts 섹션 추가")
 
+    return changes
+
+
+def _migrate_v20_to_v21(migrated):
+    """v2.0 → v2.1 마이그레이션 로직. migrated를 in-place 수정."""
+    changes = []
+
+    migrated["version"] = "2.1"
+    changes.append("version: 2.0 -> 2.1")
+
+    # briefing.custom_sections 추가
+    briefing = migrated.get("briefing", {})
+    if "custom_sections" not in briefing:
+        briefing["custom_sections"] = []
+        if "briefing" not in migrated:
+            migrated["briefing"] = briefing
+        changes.append("briefing.custom_sections 추가")
+
+    # presets.custom 추가
+    if "presets" not in migrated:
+        migrated["presets"] = {"custom": {}}
+        changes.append("presets.custom 추가")
+    elif "custom" not in migrated["presets"]:
+        migrated["presets"]["custom"] = {}
+        changes.append("presets.custom 추가")
+
+    # custom_preset_base 필드 제거 (과도기 필드)
+    if "custom_preset_base" in migrated:
+        del migrated["custom_preset_base"]
+        changes.append("custom_preset_base 필드 제거")
+
+    return changes
+
+
+def migrate_config(config):
+    """config dict를 최신 형식(v2.1)으로 체인 마이그레이션.
+
+    Returns:
+        (migrated_config, list_of_changes)
+    """
+    version = config.get("version", "")
+
+    if version == "2.1":
+        return config, ["이미 v2.1입니다"]
+
+    # 원본 보호를 위해 deep copy
+    migrated = json.loads(json.dumps(config))
+    changes = []
+
+    # Step 1: v1.x → v2.0 (v2.0 미만인 경우)
+    if version != "2.0":
+        old_version = version or "(없음)"
+        changes.extend(_migrate_v1x_to_v20(migrated, old_version))
+
+    # Step 2: v2.0 → v2.1
+    changes.extend(_migrate_v20_to_v21(migrated))
+
     return migrated, changes
 
 
@@ -86,7 +131,7 @@ def backup_config(config_path):
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="config.json v1.x → v2.0 마이그레이션")
+    parser = argparse.ArgumentParser(description="config.json v1.x → v2.1 마이그레이션")
     parser.add_argument("--dry-run", action="store_true", help="변경 사항만 출력 (파일 수정 안 함)")
     parser.add_argument("--config", type=str, help="config.json 경로")
     args = parser.parse_args()
@@ -113,21 +158,21 @@ def main():
         return 2
 
     migrated, changes = migrate_config(config)
-    is_already_v2 = len(changes) == 1 and "이미 v2.0" in changes[0]
+    is_already_latest = len(changes) == 1 and "이미 v2.1" in changes[0]
 
     if args.dry_run:
         print("=== 마이그레이션 미리보기 (dry-run) ===")
         for c in changes:
             print(f"  - {c}")
-        if is_already_v2:
+        if is_already_latest:
             print("\n변경 사항 없음.")
         else:
             print(f"\n총 {len(changes)}건의 변경이 적용됩니다.")
         return 0
 
-    # 이미 v2.0이면 파일 수정/백업 불필요
-    if is_already_v2:
-        print("이미 v2.0입니다. 변경 사항 없음.")
+    # 이미 최신이면 파일 수정/백업 불필요
+    if is_already_latest:
+        print("이미 v2.1입니다. 변경 사항 없음.")
         return 0
 
     # 백업

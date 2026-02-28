@@ -49,7 +49,7 @@ Smart Daily Briefing은 **Claude Code 및 OpenClaw**에서 동작하는 GA4 데�
 | **ga-analyst** | `skills/ga-analyst/SKILL.md` | "이번 주 세션 수 보여줘" | GA4 데이터 조회 및 분석 |
 | **report-manager** | `skills/report-manager/SKILL.md` | "리포트로 저장해줘" | 리포트 저장/스케줄 관리 + OpenClaw 브리핑 |
 | **briefing-customizer** | `skills/briefing-customizer/SKILL.md` | "행동패턴 위주로 브리핑해줘" | 브리핑 개인화 설정 |
-| **schedule-helper** | `skills/schedule-helper/SKILL.md` | "매일 브리핑 보내줘" | OpenClaw cron 스케줄 관리 |
+| **schedule-helper** | `skills/schedule-helper/SKILL.md` | "매일 브리핑 보내줘" | OpenClaw cron / Cowork create_scheduled_task 스케줄 관리 |
 
 ```
 사용자: "모바일 이탈률이 어떻게 돼?"

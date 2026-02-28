@@ -77,6 +77,15 @@ METRIC_LABELS = {
     'eventCount': '이벤트 수',
     'sessionsPerUser': '세션/사용자',
     'screenPageViewsPerSession': '페이지뷰/세션',
+    'conversions': '전환',
+    'sessionConversionRate': '전환율',
+    'totalRevenue': '총 수익',
+    'transactions': '거래 수',
+    'ecommercePurchases': '구매 수',
+    'purchaseRevenue': '구매 수익',
+    'advertiserAdCost': '광고 비용',
+    'advertiserAdClicks': '광고 클릭',
+    'returnOnAdSpend': '광고 수익률',
 }
 
 
@@ -247,7 +256,7 @@ class SvgChartGenerator:
         if n == 0:
             return self._empty_chart(title)
 
-        total = sum(values) if values else 1
+        total = sum(values) or 1
         cx, cy, r = self.width / 2, self.height / 2 + 10, min(self.width, self.height) / 2 - 60
 
         svg = self._header()
@@ -540,7 +549,7 @@ class MatplotlibChartGenerator:
         """도넛 차트 (중앙에 총합 표시)"""
         fig, ax = plt.subplots(figsize=(7, 5.5))
         colors = [self.PALETTE[i % len(self.PALETTE)] for i in range(len(labels))]
-        total = sum(values) if values else 1
+        total = sum(values) or 1
 
         wedges, texts, autotexts = ax.pie(
             values, labels=None, colors=colors,
@@ -811,9 +820,106 @@ class ChartDispatcher:
     def generate_user_behavior(self, section_data, threshold=20):
         self._generate_change_chart('user_behavior', section_data, threshold)
 
+    def generate_custom_section(self, section_id, section_data, threshold=20):
+        """커스텀 섹션 차트 생성 (chart_type 기반 라우팅)."""
+        chart_type = section_data.get('chart_type') or infer_chart_type(section_data)
+
+        if chart_type == 'none':
+            return
+
+        if chart_type == 'horizontal_bar':
+            dimensions = section_data.get('dimensions', [])
+            metrics = section_data.get('metrics', [])
+            value_key = metrics[0] if metrics else 'sessions'
+            label_keys = dimensions if dimensions else ['dimension']
+            self.generate_horizontal_bar_generic(
+                section_id, section_data,
+                label_keys=label_keys, value_key=value_key,
+            )
+
+        elif chart_type == 'line':
+            self._generate_custom_line(section_id, section_data)
+
+        elif chart_type == 'pie':
+            self._generate_custom_pie(section_id, section_data)
+
+        elif chart_type == 'change_bar':
+            self._generate_change_chart(section_id, section_data, threshold)
+
+    def _generate_custom_line(self, section_id, section_data):
+        """커스텀 섹션 라인 차트 생성 (daily_trend 패턴 활용)."""
+        rows = section_data.get('data', [])
+        if not rows:
+            return
+
+        dimensions = section_data.get('dimensions', [])
+        if 'date' in dimensions:
+            labels = [format_date(r.get('date', '')) for r in rows]
+        else:
+            label_key = dimensions[0] if dimensions else 'date'
+            labels = [str(r.get(label_key, '?')) for r in rows]
+        metrics = section_data.get('metrics', ['sessions'])
+        primary = [r.get(metrics[0], 0) for r in rows]
+        secondary = [r.get(metrics[1], 0) for r in rows] if len(metrics) > 1 else None
+        title = section_data.get('name', section_id)
+        path = self._output_path(section_id)
+
+        if self.use_matplotlib:
+            self.mpl_gen.generate_daily_trend(title, labels, primary, secondary, output_path=path)
+        else:
+            svg = self.svg_gen.generate_vertical_bar(
+                title, labels, primary,
+                value_labels=[format_number(v) for v in primary],
+            )
+            safe_write(path, svg)
+
+        self.manifest['charts'][section_id] = f'{section_id}.{self.ext}'
+
+    def _generate_custom_pie(self, section_id, section_data):
+        """커스텀 섹션 파이 차트 생성 (device 패턴 활용)."""
+        rows = section_data.get('data', [])
+        if not rows:
+            return
+
+        dimensions = section_data.get('dimensions', [])
+        metrics = section_data.get('metrics', ['sessions'])
+        label_key = dimensions[0] if dimensions else 'dimension'
+        value_key = metrics[0] if metrics else 'sessions'
+
+        labels = [r.get(label_key, '?') for r in rows]
+        values = [r.get(value_key, 0) for r in rows]
+        title = section_data.get('name', section_id)
+        path = self._output_path(section_id)
+
+        if self.use_matplotlib:
+            self.mpl_gen.generate_pie(title, labels, values, output_path=path)
+        else:
+            svg = self.svg_gen.generate_pie(title, labels, values)
+            safe_write(path, svg)
+
+        self.manifest['charts'][section_id] = f'{section_id}.{self.ext}'
+
     def save_manifest(self):
         path = os.path.join(self.output_dir, 'manifest.json')
         safe_write_json(path, self.manifest)
+
+
+# ============================================================
+#  커스텀 섹션 차트 타입 자동 추론
+# ============================================================
+def infer_chart_type(section_data):
+    """커스텀 섹션의 데이터 구조로 적절한 차트 타입을 추론."""
+    dimensions = section_data.get('dimensions', [])
+    limit = section_data.get('limit', 0)
+    compare_previous = section_data.get('compare_previous', False)
+
+    if 'date' in dimensions:
+        return 'line'
+    if dimensions and limit and limit > 0:
+        return 'horizontal_bar'
+    if not dimensions and compare_previous:
+        return 'change_bar'
+    return 'none'
 
 
 # ============================================================
@@ -865,20 +971,21 @@ def main():
 
     for section_id, section_data in sections.items():
         handler_name = SECTION_HANDLERS.get(section_id)
-        if not handler_name:
-            continue
 
         prev_count = len(dispatcher.manifest['charts'])
-        handler = getattr(dispatcher, handler_name)
-        if handler_name in ('generate_overview_change', 'generate_user_behavior'):
-            handler(section_data, threshold)
+        if handler_name:
+            handler = getattr(dispatcher, handler_name)
+            if handler_name in ('generate_overview_change', 'generate_user_behavior'):
+                handler(section_data, threshold)
+            else:
+                handler(section_data)
         else:
-            handler(section_data)
+            dispatcher.generate_custom_section(section_id, section_data, threshold)
 
         if len(dispatcher.manifest['charts']) > prev_count:
             print(f'  Generated: {section_id}.{dispatcher.ext}')
         else:
-            print(f'  Skipped: {section_id} (no data)')
+            print(f'  Skipped: {section_id} (no data or chart_type=none)')
 
     dispatcher.save_manifest()
     print(f'Manifest saved: {os.path.join(args.output_dir, "manifest.json")}')
